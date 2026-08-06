@@ -1,0 +1,47 @@
+.mod-pulse-automation-table table.generaltable tbody td .action-icon.pulseaction_credits i,
+.mod-pulse-automation-table .badge.pulseaction_credits {
+    background: var(--primary, var(--bs-primary));
+}
+
+/* Credits navigation container */
+.credits-navbar-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.credits-navbar-container:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Credits navbar item */
+.credits-navbar-item {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    height: 100%;
+    height: fit-content;
+    background: var(--secondary);
+    padding: 4px 3px 4px 10px;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+/* Credits icon */
+.credits-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, #ffd700, #ffed4e);
+    border-radius: 50%;
+    color: #333;
+    font-size: 12px;
+}
+
+.credits-icon i {
+    font-size: 12px;
+}

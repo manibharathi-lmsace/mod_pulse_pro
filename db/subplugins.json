@@ -1,0 +1,12 @@
+{
+    "plugintypes": {
+        "pulseaction": "mod\/pulse\/actions",
+        "pulsecondition": "mod\/pulse\/conditions",
+        "pulseaddon": "mod\/pulse\/addons"
+    },
+    "subplugintypes": {
+        "pulseaction": "actions",
+        "pulsecondition": "conditions",
+        "pulseaddon": "addons"
+    }
+}
