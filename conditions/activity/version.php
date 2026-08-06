@@ -24,5 +24,5 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'pulsecondition_activity';
-$plugin->version = 2024122707;
+$plugin->version = 2026080100;
 $plugin->supported = [401, 502];

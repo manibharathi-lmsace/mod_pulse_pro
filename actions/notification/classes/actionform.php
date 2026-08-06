@@ -150,12 +150,29 @@ class actionform extends \mod_pulse\automation\action_base {
             return false;
         }
 
+        // The "triggering user (self)" sentinel resolves to the triggering user themselves at
+        // send time (no course role to validate), so strip it before the role-user check.
+        $selftrigger = in_array(
+            (string) notification::RECIPIENT_TRIGGERUSER,
+            array_map('strval', (array) $recipients),
+            true
+        );
+        $recipients = array_filter(
+            (array) $recipients,
+            fn($v) => (string) $v !== (string) notification::RECIPIENT_TRIGGERUSER
+        );
+
         // Get course context.
         $context = \context_course::instance($instance->courseid);
 
         // Clean up custom mails and roles from recipient roles.
         $custommails = array_filter($recipients, fn($v) => validate_email($v));
         $roles = array_filter($recipients, fn($v) => is_number($v));
+
+        // If only the self sentinel is configured, no error - the recipient is always resolvable.
+        if (empty($roles) && empty($custommails) && $selftrigger) {
+            return false;
+        }
 
         // If only custom emails are set, no error.
         if (empty($roles) && !empty($custommails)) {
@@ -781,6 +798,7 @@ class actionform extends \mod_pulse\automation\action_base {
             get_string('dynamiccontent', 'pulseaction_notification'),
             $modules
         );
+        $dynamic->updateAttributes(['data-contentmods' => json_encode(array_values($contentmods))]);
         $mform->insertElementBefore($dynamic, 'pulsenotification_footercontent_editor');
         $mform->addHelpButton('pulsenotification_dynamiccontent', 'dynamiccontent', 'pulseaction_notification');
 
@@ -846,7 +864,7 @@ class actionform extends \mod_pulse\automation\action_base {
         $PAGE->requires->js_call_amd(
             'pulseaction_notification/chaptersource',
             'updateChapter',
-            ['contextid' => $PAGE->context->id, 'contentmods' => $contentmods]
+            ['contextid' => $PAGE->context->id]
         );
     }
 

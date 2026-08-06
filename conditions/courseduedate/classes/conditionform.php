@@ -39,35 +39,7 @@ class conditionform extends \mod_pulse\automation\condition_base {
      * @return bool True if condition is met, false otherwise.
      */
     public function get_user_course_duedate($instancedata, int $userid, ?\completion_info $completion = null) {
-        global $DB;
-
-        // Check if timetable tool is installed.
-        $helper = \mod_pulse\automation\helper::create();
-        if (!$helper->timetable_installed()) {
-            return false;
-        }
-
-        $courseid = $instancedata->courseid;
-        $course = get_course($courseid);
-
-        // Get the course due date from timetable.
-        $timecourse = $DB->get_record('tool_timetable_course', ['course' => $course->id]);
-        if (!$timecourse) {
-            return false;
-        }
-
-        $timemanagement = new \tool_timetable\time_management($timecourse->course);
-        $usercourseenrollinfo = $timemanagement->get_course_user_enrollment($userid);
-
-        if (empty($usercourseenrollinfo)) {
-            return false;
-        }
-
-        $startdate = $usercourseenrollinfo[0]['timestart'] ?? 0;
-        $enddate = $usercourseenrollinfo[0]['timeend'] ?? 0;
-        $courseduedate = $timemanagement->calculate_course_duedate($startdate, $enddate, $userid);
-
-        return $courseduedate;
+        return $this->get_course_due_date($instancedata, $userid) ?: false;
     }
 
     /**
@@ -78,12 +50,23 @@ class conditionform extends \mod_pulse\automation\condition_base {
      * @param \completion_info|null $completion The completion information.
      * @return bool True if condition is met, false otherwise.
      */
-    public function is_user_completed($instancedata, int $userid, ?\completion_info $completion = null) {
-        global $DB;
-
-        $courseduedate = $this->get_user_course_duedate($instancedata, $userid, $completion);
+    public function is_user_completed(
+        $instancedata,
+        int $userid,
+        ?\completion_info $completion = null,
+        ?\tool_timetable\time_management $timemanagement = null,
+        ?array $enrollinfo = null,
+        ?bool $hastimetablecourse = null
+    ) {
+        $courseduedate = $this->get_course_due_date($instancedata, $userid, $timemanagement, $enrollinfo, $hastimetablecourse);
 
         if (!$courseduedate) {
+            return false;
+        }
+
+        // For upcoming status: only trigger if the due date is still in the future.
+        $status = $instancedata->condition['courseduedate']['status'] ?? 0;
+        if ((int)$status === \mod_pulse\automation\condition_base::FUTURE && $courseduedate < time()) {
             return false;
         }
 
@@ -95,17 +78,14 @@ class conditionform extends \mod_pulse\automation\condition_base {
      */
     public function is_instance_completed(\stdClass $instancedata, int $userid, $completion = null) {
         try {
-            if (
-                isset($instancedata->triggerconditions['courseduedate'])
-                && $instancedata->triggerconditions['courseduedate']['status'] >= 1
-            ) {
-                $inscondition = $instancedata->triggerconditions['courseduedate'];
-                $courseduedate = $this->get_user_course_duedate($instancedata, $userid, $completion);
-                if ($courseduedate && $inscondition['upcomingtime'] <= $courseduedate) {
-                    return true;
-                }
+            $inscondition = $instancedata->condition['courseduedate'] ?? null;
+            if (!$inscondition || ($inscondition['status'] ?? 0) < 1) {
+                return false;
             }
-
+            $courseduedate = $this->get_user_course_duedate($instancedata, $userid, $completion);
+            if ($courseduedate && $inscondition['upcomingtime'] <= $courseduedate && time() <= $courseduedate) {
+                return true;
+            }
         } catch (\Exception $e) {
             return false;
         }
@@ -177,30 +157,39 @@ class conditionform extends \mod_pulse\automation\condition_base {
     /**
      * Get the course due date for a specific user and course.
      *
+     * $timemanagement, $enrollinfo and $hastimetablecourse are course-level (or, for
+     * $enrollinfo, cheaply bulk-fetchable) values that are identical for every user of
+     * a given course/instance. Callers processing many users for the same course (e.g.
+     * the scheduled task) should compute these once and pass them in, instead of paying
+     * for a fresh time_management construction and course_enrolment_manager-backed
+     * enrolment lookup on every single call.
+     *
      * @param object $instancedata The instance data
      * @param int $userid The user ID
+     * @param \tool_timetable\time_management|null $timemanagement Pre-built for this course, reused across users.
+     * @param array|null $enrollinfo Pre-fetched [['timestart' => ..., 'timeend' => ...]] for this user,
+     *                                bypassing time_management's own (expensive) enrolment lookup.
+     * @param bool|null $hastimetablecourse Pre-checked existence of a tool_timetable_course row for this course.
      * @return int|false The course due date timestamp or false if not available
      */
-    public function get_course_due_date($instancedata, $userid) {
+    public function get_course_due_date(
+        $instancedata,
+        $userid,
+        ?\tool_timetable\time_management $timemanagement = null,
+        ?array $enrollinfo = null,
+        ?bool $hastimetablecourse = null
+    ) {
         global $DB;
 
-        // Check if timetable tool is installed.
         $helper = \mod_pulse\automation\helper::create();
         if (!$helper->timetable_installed()) {
             return false;
         }
 
         $courseid = $instancedata->courseid;
-        $course = get_course($courseid);
-
-        // Get the course due date from timetable.
-        $timecourse = $DB->get_record('tool_timetable_course', ['course' => $course->id]);
-        if (!$timecourse) {
-            return false;
-        }
-
-        $timemanagement = new \tool_timetable\time_management($timecourse->course);
-        $usercourseenrollinfo = $timemanagement->get_course_user_enrollment($userid);
+        $timemanagement = $timemanagement ?? new \tool_timetable\time_management($courseid);
+        $hastimetablecourse = $hastimetablecourse ?? $DB->record_exists('tool_timetable_course', ['course' => $courseid]);
+        $usercourseenrollinfo = $enrollinfo ?? $timemanagement->get_course_user_enrollment($userid);
 
         if (empty($usercourseenrollinfo)) {
             return false;
@@ -209,7 +198,16 @@ class conditionform extends \mod_pulse\automation\condition_base {
         $startdate = $usercourseenrollinfo[0]['timestart'] ?? 0;
         $enddate = $usercourseenrollinfo[0]['timeend'] ?? 0;
 
-        return $timemanagement->calculate_course_duedate($startdate, $enddate, $userid);
+        // Primary: Configuration record + any per-user overrides.
+        if ($hastimetablecourse) {
+            $duedate = $timemanagement->calculate_course_duedate($startdate, $enddate, $userid);
+            if ($duedate) {
+                return $duedate;
+            }
+        }
+
+        // Fallback: Timetable > Assignments only (no Configuration record exists).
+        return $timemanagement->get_user_course_due_date($startdate, $enddate, $userid) ?: false;
     }
 
     /**

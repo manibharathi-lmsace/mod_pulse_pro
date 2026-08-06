@@ -182,6 +182,36 @@ class conditionform extends \mod_pulse\automation\condition_base {
     }
 
     /**
+     * SQL filter for the in-form preview: user must be a member of any configured cohort, with
+     * timeadded >= upcomingtime when that is set.
+     *
+     * @param array $config
+     * @param object $instancedata
+     * @return array
+     */
+    public function candidate_filter_sql(array $config, $instancedata): array {
+        global $DB;
+        if (empty($config['status'])) {
+            return ['join' => '', 'where' => '', 'params' => []];
+        }
+        $cohorts = array_filter((array) ($config['cohorts'] ?? []));
+        if (empty($cohorts)) {
+            // No cohorts: the engine treats this as "pass through" (see is_user_completed),
+            // so contribute no filter.
+            return ['join' => '', 'where' => '', 'params' => []];
+        }
+        [$insql, $params] = $DB->get_in_or_equal($cohorts, SQL_PARAMS_NAMED, 'pchcoh_');
+        $upcoming = '';
+        if (!empty($config['upcomingtime'])) {
+            $upcoming = ' AND cm.timeadded >= :pchcoh_upc';
+            $params['pchcoh_upc'] = (int) $config['upcomingtime'];
+        }
+        $where = "EXISTS (SELECT 1 FROM {cohort_members} cm
+                          WHERE cm.userid = u.id AND cm.cohortid $insql $upcoming)";
+        return ['join' => '', 'where' => $where, 'params' => $params];
+    }
+
+    /**
      * Returns the timestamp when the user was added to the configured cohort.
      *
      * @param int $userid The user ID.

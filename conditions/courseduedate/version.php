@@ -24,4 +24,4 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'pulsecondition_courseduedate';
-$plugin->version = 2025092601;
+$plugin->version = 2026080501;

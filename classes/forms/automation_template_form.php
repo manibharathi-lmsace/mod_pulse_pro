@@ -232,7 +232,40 @@ class automation_template_form extends moodleform {
             $mform->addElement('html', '</div>'); // E.o of actions triggere tab.
         }
 
+        $this->add_precheck_widget($mform);
+
         $mform->addElement('html', '</div>'); // E.o of actions triggere tab.
+    }
+
+    /**
+     * Render the in-form live preview widget for matching users and wire up the AMD module.
+     *
+     * @param \MoodleQuickForm $mform
+     * @return void
+     */
+    protected function add_precheck_widget($mform) {
+        global $OUTPUT, $PAGE;
+        $courseid = (int) ($this->get_customdata('courseid') ?: 0);
+        $instanceid = (int) ($this->get_customdata('instanceid') ?: 0);
+
+        $help = $OUTPUT->help_icon('precheck', 'mod_pulse');
+        $label = s(get_string('precheck', 'mod_pulse'));
+        $showlabel = s(get_string('precheck_show', 'mod_pulse'));
+
+        $html = '<div id="pulse-precheck" class="pulse-precheck alert alert-light border d-flex align-items-center flex-wrap mt-3" '
+            . 'data-courseid="' . $courseid . '" data-instanceid="' . $instanceid . '">'
+            . '<span class="mr-2 font-weight-bold">' . $label . ':</span>'
+            . '<span id="pulse-precheck-count" class="badge badge-pill badge-secondary mr-2">—</span>'
+            . '<a href="#" id="pulse-precheck-show" class="btn btn-sm btn-link disabled" aria-disabled="true">'
+            . $showlabel . '</a>'
+            . '<span class="ml-auto">' . $help . '</span>'
+            . '</div>';
+        $mform->addElement('html', $html);
+
+        $PAGE->requires->js_call_amd('mod_pulse/precheck', 'init', [[
+            'courseid' => $courseid,
+            'instanceid' => $instanceid,
+        ]]);
     }
 
     /**
@@ -403,6 +436,13 @@ class automation_template_form extends moodleform {
 
             // Merge with existing roles.
             $roles = $roles + $notificationroleoptions;
+        }
+
+        // The triggering user themselves. Required for site-level conditions (e.g. "not enrolled")
+        // whose recipient has no course role to resolve against.
+        if (class_exists('\pulseaction_notification\notification')) {
+            $roles[\pulseaction_notification\notification::RECIPIENT_TRIGGERUSER] =
+                get_string('triggeruser', 'pulseaction_notification');
         }
 
         return $roles;

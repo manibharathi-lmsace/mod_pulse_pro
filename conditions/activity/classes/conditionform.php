@@ -297,7 +297,7 @@ class conditionform extends \mod_pulse\automation\condition_base {
 
         // Selected Activities method.
         if ($completiontype == self::ACTVITY_COMPLETION_METHOD_SELECTACTIVITY) {
-            $activityoperator = $additional['activityoperator'] ?? self::ACTIVITY_OPERATOR_ALL;
+            $activityoperator = $additional['activityoperator'] ?? self::ACTIVITY_OPERATOR_ANY;
 
             if (empty($modules)) {
                 return false;

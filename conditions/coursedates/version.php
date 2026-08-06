@@ -24,5 +24,5 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'pulsecondition_coursedates';
-$plugin->version = 2025110805;
+$plugin->version = 2026080201;
 $plugin->supported = [401, 502];

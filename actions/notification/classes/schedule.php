@@ -386,6 +386,7 @@ class schedule {
 
         $conditionleftjoins = '';
         $coursedateswhere = 'c.startdate <= :startdate AND (c.enddate = 0 OR c.enddate >= :enddate)';
+        $skipcomponents = []; // Conditions whose instances bypass the active-enrolment gate.
         $plugins = \mod_pulse\plugininfo\pulsecondition::instance()->get_plugins_base();
         foreach ($plugins as $component => $pluginbase) {
             $conditionclass = "\\pulsecondition_{$component}\\conditionform";
@@ -399,12 +400,40 @@ class schedule {
                 }
             }
 
+            // Collect conditions that opt out of the active-course-enrolment delivery gate.
+            if (method_exists($pluginbase, 'schedule_skip_enrolment_gate') && $pluginbase->schedule_skip_enrolment_gate()) {
+                $skipcomponents[] = $component;
+            }
+
             [$fields, $join] = $pluginbase->schedule_override_join();
             if (empty($fields)) {
                 continue;
             }
             $conditionleftjoins .= $join;
             $select[] = $fields;
+        }
+
+        // Build the set of instance ids whose enabled conditions bypass the enrolment gate. When
+        // empty, the clause matches nothing (ai.id = -1), so the WHERE reduces to the original
+        // enrolment-gated behaviour for all existing automations.
+        $skipclause = 'ai.id = -1';
+        $skipparams = [];
+        if (!empty($skipcomponents)) {
+            [$cin, $cparams] = $DB->get_in_or_equal($skipcomponents, SQL_PARAMS_NAMED, 'skipc');
+            [$cin2, $cparams2] = $DB->get_in_or_equal($skipcomponents, SQL_PARAMS_NAMED, 'skipct');
+            $skipinstancesql = "SELECT DISTINCT ai.id
+                                  FROM {pulse_autoinstances} ai
+                             LEFT JOIN {pulse_condition_overrides} co
+                                    ON co.instanceid = ai.id AND co.triggercondition $cin
+                                 WHERE co.status > 0
+                                    OR (co.status IS NULL AND ai.templateid IN (
+                                          SELECT c.templateid FROM {pulse_condition} c
+                                           WHERE c.triggercondition $cin2 AND c.status > 0))";
+            $skipids = $DB->get_fieldset_sql($skipinstancesql, $cparams + $cparams2);
+            if (!empty($skipids)) {
+                [$skipin, $skipparams] = $DB->get_in_or_equal($skipids, SQL_PARAMS_NAMED, 'skipins');
+                $skipclause = "ai.id $skipin";
+            }
         }
 
         // Final list of select columns, convert to sql mode.
@@ -438,14 +467,19 @@ class schedule {
             ) active_enrols ON active_enrols.id = ue.id AND active_enrols.courseid = c.id
             LEFT JOIN {user} nologin_u ON nologin_u.id = ns.userid AND nologin_u.auth = 'nologin'
             WHERE ns.status = :status AND ai.status <> 0
-            AND (active_enrols.activeenrolment <> 0 OR nologin_u.id IS NOT NULL)
-            AND c.visible = 1
-            AND $coursedateswhere
             AND (
-                nologin_u.id IS NOT NULL
-                OR (ns.relateduserid IS NULL AND active_enrols.id = ns.userid)
-                OR (ns.relateduserid IS NOT NULL AND active_enrols.id = ns.relateduserid)
+                $skipclause
+                OR (
+                    active_enrols.activeenrolment <> 0 OR nologin_u.id IS NOT NULL
+                    AND c.visible = 1
+                    AND (
+                        nologin_u.id IS NOT NULL
+                        OR (ns.relateduserid IS NULL AND active_enrols.id = ns.userid)
+                        OR (ns.relateduserid IS NOT NULL AND active_enrols.id = ns.relateduserid)
+                    )
+                )
             )
+            AND $coursedateswhere
             AND ue.deleted = 0 AND ue.suspended = 0
             AND ns.suppressreached = 0 AND ns.scheduletime <= :current_timestamp $userwhere ORDER BY ns.timecreated ASC";
 
@@ -454,7 +488,7 @@ class schedule {
             'current_timestamp' => time(),
             'timestart' => time(), 'timeend' => time(),
             'startdate' => time(), 'enddate' => time(),
-        ] + $userparam;
+        ] + $userparam + $skipparams;
 
         $schedules = $DB->get_records_sql($sql, $params, 0, $limit);
 

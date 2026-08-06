@@ -114,6 +114,7 @@ $string['recipientscustom'] = 'Custom mail - Recipients';
 $string['recipientscustom_desc'] = 'Emails entered here will receive the notification, in addition to any recipients determined by the automation settings. <br> Enter one recipient per line in the format: Name, Mail. Example:<br>HR Department,hr@mycompany.com. ';
 $string['recipientsdefaultlastname'] = 'Default last name';
 $string['recipientsdefaultlastname_desc'] = 'The last name to use for custom recipient accounts when no last name is provided. This prevents fullname-related errors and avoids Moodle deleting incomplete users. Default: "Service Account".';
+$string['triggeruser'] = 'The triggering user (self)';
 $string['saturday'] = 'Saturday';
 $string['schedulecreatedtime'] = 'Schedule created time';
 $string['scheduledtime'] = 'Scheduled time';

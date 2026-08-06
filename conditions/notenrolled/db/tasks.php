@@ -15,22 +15,24 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * DB Events -  Define event observers for "Activity condition".
+ * Task definitions for the "Not enrolled" condition.
  *
- * @package   pulsecondition_activity
- * @copyright 2023, bdecent gmbh bdecent.de
+ * @package   pulsecondition_notenrolled
+ * @copyright 2026, bdecent gmbh bdecent.de
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
 defined('MOODLE_INTERNAL') || die();
 
-// Course module event observer for the "Activity completion" condition in the pulse 2.0.
-$observers = [
+$tasks = [
     [
-        'eventname' => 'core\event\course_module_completion_updated',
-        'callback' => '\pulsecondition_activity\conditionform::module_completed',
-    ],
-    [
-        'eventname' => 'core\event\user_graded',
-        'callback' => '\pulsecondition_activity\conditionform::module_completed',
+        // Scans recently created users with no enrolment. Hourly is ample for day/week windows.
+        'classname' => 'pulsecondition_notenrolled\task\notenrolled_scan',
+        'blocking' => 0,
+        'minute' => '0',
+        'hour' => '*',
+        'day' => '*',
+        'dayofweek' => '*',
+        'month' => '*',
     ],
 ];

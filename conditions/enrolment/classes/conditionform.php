@@ -82,6 +82,38 @@ class conditionform extends \mod_pulse\automation\condition_base {
     }
 
     /**
+     * SQL filter for the in-form preview: user has an active enrolment in the instance course.
+     *
+     * @param array $config
+     * @param object $instancedata
+     * @return array
+     */
+    public function candidate_filter_sql(array $config, $instancedata): array {
+        if (empty($config['status']) || empty($instancedata->courseid)) {
+            return ['join' => '', 'where' => '', 'params' => []];
+        }
+        $now = time();
+        $params = [
+            'pchenr_cid' => (int) $instancedata->courseid,
+            'pchenr_now1' => $now,
+            'pchenr_now2' => $now,
+        ];
+        $upcoming = '';
+        if (!empty($config['upcomingtime'])) {
+            $upcoming = ' AND ue.timecreated >= :pchenr_upc';
+            $params['pchenr_upc'] = (int) $config['upcomingtime'];
+        }
+        $where = "EXISTS (SELECT 1 FROM {user_enrolments} ue
+                            JOIN {enrol} e ON e.id = ue.enrolid
+                           WHERE ue.userid = u.id AND ue.status = 0
+                             AND e.courseid = :pchenr_cid
+                             AND (ue.timestart = 0 OR ue.timestart <= :pchenr_now1)
+                             AND (ue.timeend = 0 OR ue.timeend > :pchenr_now2) $upcoming)";
+        return ['join' => '', 'where' => $where, 'params' => $params];
+    }
+
+
+    /**
      * Returns the timestamp when the user was enrolled in the course.
      *
      * @param int $userid The user ID.

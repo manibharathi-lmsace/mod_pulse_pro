@@ -460,6 +460,8 @@ $string['triggeroperator_help'] = 'Choose the operator that determines how the s
 $string['tuesday'] = 'Tuesday';
 $string['unset'] = 'Unset';
 $string['upcoming'] = 'Upcoming';
+$string['upcomingtime'] = 'Applies from';
+$string['upcomingtime_help'] = 'When Status is set to <em>Upcoming</em>, the condition only matches users whose underlying event (signup for "Not enrolled", cohort membership for "Cohort", etc.) happens on or after this date and time. Defaults to "now" so saving without changing the date pins the cutoff to the moment you saved; adjust it to backdate (apply the rule retroactively) or to post-date (delay activation until later).';
 $string['update_preset'] = 'Update Preset Template';
 $string['updatecompletion'] = 'Update pulse modules completion';
 $string['updateinstance'] = 'Update Template & Instance';
@@ -479,3 +481,24 @@ $string['weekly'] = 'Weekly';
 $string['weeks'] = 'Weeks';
 $string['withselect'] = 'With selection:';
 $string['yearly'] = 'Yearly';
+$string['precheck'] = 'Matching users';
+$string['precheck_help'] = '<p>This live counter shows how many users <em>currently</em> satisfy the trigger conditions configured in this form, without saving. It runs the same engine method the scan task uses (<code>find_user_completion_conditions</code>), so the result mirrors what the automation would do if you saved now.</p>
+<p><strong>Candidate set.</strong> Confirmed, non-deleted, non-suspended users excluding the guest account. The query is capped at a maximum (default 5,000 users); a trailing "+" on the count means the cap was reached.</p>
+<p><strong>How each condition narrows the set:</strong></p>
+<ul>
+<li><strong>Cohort:</strong> EXISTS in <code>cohort_members</code> for any of the selected cohorts. When <em>Upcoming</em> is on, also requires <code>timeadded &ge;</code> the upcoming time.</li>
+<li><strong>Not enrolled:</strong> for scope = <em>any course</em>, NOT EXISTS an active enrolment in any real course; for scope = <em>specific course(s)</em>, NOT EXISTS in those courses. If a minimum account age is set, also requires <code>user.timecreated + minimum age &le; now</code>.</li>
+<li><strong>Enrolment:</strong> EXISTS an active enrolment in the instance&rsquo;s course.</li>
+<li><strong>Other conditions</strong> (activity, course completion, session, user inactivity, events, course dates, course group): evaluated per candidate in PHP via <code>is_user_completed()</code>. They run on whatever set the SQL conditions above narrow down to, so combine them with cohort or enrolment to keep the scan fast on large sites.</li>
+</ul>
+<p><strong>Operator:</strong> <em>All</em> intersects conditions (AND); <em>Any</em> unions them (OR). When the operator is <em>Any</em> and at least one enabled condition has no SQL filter, the SQL pre-filter is skipped (correctness over speed) and every candidate user is evaluated in PHP.</p>
+<p><strong>What it does not simulate:</strong> notification delay, frequency limits, suppression rules, and the active-enrolment delivery gate. Those run at send time; this preview only tells you who currently matches the trigger conditions.</p>';
+$string['precheck_show'] = 'Show users';
+$string['precheck_modaltitle'] = 'Users matching the current trigger conditions';
+$string['precheck_modalcolid'] = 'ID';
+$string['precheck_modalcolname'] = 'Full name';
+$string['precheck_modalcolemail'] = 'Email';
+$string['precheck_modalnone'] = 'No users currently match the configured conditions.';
+$string['precheck_modalmore'] = 'Showing the first {$a->shown} of {$a->total} matching users.';
+$string['precheck_modalfallback'] = 'Note: these conditions were evaluated per-user in PHP (no SQL pre-filter): {$a}.';
+$string['precheck_pageinfo'] = 'Page {$a->page} of {$a->totalpages} &middot; {$a->total} users total';

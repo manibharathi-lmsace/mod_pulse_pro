@@ -100,14 +100,26 @@ abstract class condition_base {
     }
 
     /**
-     * Adds an upcoming element to the form.
+     * Adds a date/time picker for the "Upcoming" cutoff to the form.
      *
-     * @param moodleform $mform The form object.
+     * Visible only when the condition's Status is set to Upcoming. The stored timestamp is
+     * compared against the per-condition reference event (signup time for notenrolled, cohort
+     * timeadded for cohort, etc.) to restrict the condition to users whose event happens after
+     * the cutoff. Defaults to "now" so saving without touching the picker keeps the prior
+     * behaviour; admins can backdate or post-date the cutoff explicitly.
+     *
+     * @param \MoodleQuickForm $mform The form object.
      */
     public function upcoming_element(&$mform) {
-
-        $mform->addElement('hidden', 'condition[' . $this->component . '][upcomingtime]');
-        $mform->setType('condition[' . $this->component . '][upcomingtime]', PARAM_INT);
+        $name = 'condition[' . $this->component . '][upcomingtime]';
+        $mform->addElement(
+            'date_time_selector',
+            $name,
+            get_string('upcomingtime', 'pulse')
+        );
+        $mform->addHelpButton($name, 'upcomingtime', 'pulse');
+        // Hide unless Status = Upcoming.
+        $mform->hideIf($name, 'condition[' . $this->component . '][status]', 'neq', self::FUTURE);
     }
 
     /**
@@ -132,7 +144,6 @@ abstract class condition_base {
      * @param bool $newuser Is the trigger instance for new user.
      */
     public function trigger_instance(int $instanceid, int $userid, $expectedtime = null, $newuser = false) {
-
         static $triggered = [];
 
         $key = $instanceid . '_' . $userid;
@@ -182,6 +193,40 @@ abstract class condition_base {
      * @return bool
      */
     public function delay_support_plugins() {
+        return false;
+    }
+
+    /**
+     * Optional SQL fragment that narrows the candidate user set for the in-form preview.
+     *
+     * The preview composer queries `{user} u` and stitches each condition's fragment into the
+     * WHERE clause (AND for the ALL operator, OR for ANY). Conditions that cannot express their
+     * semantics in SQL should leave the default (empty), and the preview will fall back to
+     * evaluating `is_user_completed()` per candidate user on the reduced set.
+     *
+     * Implementations MUST namespace their parameter keys (e.g. prefix with the component name)
+     * to avoid collisions when multiple conditions contribute fragments to the same query.
+     *
+     * @param array $config The condition's configured options for the current form state.
+     * @param object $instancedata The merged instance data (course, condition[], triggeroperator, ...).
+     * @return array Associative array with keys 'join' (string), 'where' (string), 'params' (array).
+     */
+    public function candidate_filter_sql(array $config, $instancedata): array {
+        return ['join' => '', 'where' => '', 'params' => []];
+    }
+
+    /**
+     * Indicates whether instances using this condition should bypass the active-course-enrolment
+     * gate when the notification schedule is sent.
+     *
+     * The notification send query normally only delivers to recipients with an active enrolment
+     * in the instance's course. Site-level conditions whose recipients are not course-enrolled
+     * (e.g. "not enrolled") return true here so their schedules can still be sent. This is opt-in;
+     * the default preserves the enrolment-gated behaviour for all existing conditions.
+     *
+     * @return bool
+     */
+    public function schedule_skip_enrolment_gate() {
         return false;
     }
 
@@ -276,8 +321,8 @@ abstract class condition_base {
             'triggercondition' => $this->component,
         ]);
 
-        $upcomingtime = time();
-        // Future enrolment is disabled then make the upcoming time to null.
+        // Use the submitted date; fall back to now only when none was provided.
+        $upcomingtime = !empty($data['upcomingtime']) ? (int) $data['upcomingtime'] : time();
         if ($status != self::FUTURE && $templatestatus != self::FUTURE) {
             $upcomingtime = 0;
         }
@@ -301,8 +346,8 @@ abstract class condition_base {
                 ['instanceid' => $instanceid, 'triggercondition' => $this->component]
             )
         ) {
-            // Condition is updated to upcoming, therefore set the current time as upcoming time.
-            if ($status == self::FUTURE && $condition->status != $record['status']) {
+            // Always persist upcomingtime when FUTURE so user-entered date changes are saved.
+            if ($status == self::FUTURE) {
                 $record['upcomingtime'] = $upcomingtime;
             }
 

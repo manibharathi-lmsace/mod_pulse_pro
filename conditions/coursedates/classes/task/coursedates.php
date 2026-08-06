@@ -77,52 +77,35 @@ class coursedates extends \core\task\scheduled_task {
      * @param object $instance The automation instance
      */
     private function process_instance($instance) {
-        global $DB;
         mtrace("Processing instance {$instance->id} for course {$instance->courseid}");
 
         $conditionform = new \pulsecondition_coursedates\conditionform();
-        $instancedata = \mod_pulse\automation\instances::create($instance->id)->get_instance_data();
+        $instanceobj   = \mod_pulse\automation\instances::create($instance->id);
+        $instancedata  = $instanceobj->get_instance_data();
 
-        // Verify course date is set.
-        $coursedate = $conditionform->get_course_date($instancedata);
-        $datetype = $instancedata->condition['coursedates']['type'] ?? 'start';
+        // Hoist these — both are course-level constants, identical for every user in the loop.
+        $targetdate = $conditionform->get_coursedates_with_delay($instancedata);
+        $datetype   = $instancedata->condition['coursedates']['type'] ?? 'start';
 
-        if (!$coursedate) {
+        if (!$targetdate) {
             mtrace("No {$datetype} date set for course {$instance->courseid}");
             return;
         }
 
-        $sql = "SELECT DISTINCT u.id, u.username
-            FROM {user} u
-            JOIN {user_enrolments} ue ON ue.userid = u.id
-            JOIN {enrol} e ON e.id = ue.enrolid
-            WHERE e.courseid = :courseid
-            AND ue.timecreated < :targetdate";
-
-        if ($datetype == 'end') {
-            $sql .= " AND ue.status = 0";
-        }
-
-        $users = $DB->get_records_sql($sql, ['courseid' => $instance->courseid, 'targetdate' => $coursedate]);
-
-        if (empty($users)) {
-            mtrace("No users enrolled before {$datetype} date for course {$instance->courseid}");
-            return;
-        }
-
         $alreadynotified = $this->get_already_notified_users($instance->id);
+
+        // Users enrolled on or before the (delay-adjusted) course date.
+        $users = $conditionform->get_matching_users_recordset($instance->courseid, $targetdate, $datetype);
 
         $triggeredcount = 0;
         foreach ($users as $user) {
             if (isset($alreadynotified[$user->id])) {
                 continue;
             }
-            $condition = $conditionform->is_user_completed($instancedata, $user->id);
-            if ($condition) {
-                $conditionform->trigger_instance($instance->id, $user->id, null);
-                $triggeredcount++;
-            }
+            $instanceobj->trigger_action((int)$user->id, null, false);
+            $triggeredcount++;
         }
+        $users->close();
 
         mtrace("Triggered automation for {$triggeredcount} users in instance {$instance->id}");
     }

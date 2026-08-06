@@ -517,6 +517,7 @@ class conditionform extends \mod_pulse\automation\condition_base {
         $params = [
             'courseid'             => $course->id,
             'active'               => ENROL_USER_ACTIVE,
+            'enrolenabled'         => ENROL_INSTANCE_ENABLED,
             'courseid_ul'          => $course->id,
             'inactivitythreshold1' => $inactivitythreshold,
             'inactivitythreshold2' => $inactivitythreshold,
@@ -528,7 +529,8 @@ class conditionform extends \mod_pulse\automation\condition_base {
                   FROM (
                       SELECT ue.userid, MIN(ue.timecreated) AS enrolltime
                         FROM {user_enrolments} ue
-                        JOIN {enrol} e ON e.id = ue.enrolid
+                        JOIN {enrol} e ON e.id = ue.enrolid AND e.status = :enrolenabled
+                        JOIN {user} u ON u.id = ue.userid AND u.deleted = 0
                        WHERE e.courseid = :courseid AND ue.status = :active
                        GROUP BY ue.userid
                   ) ue_min
@@ -582,6 +584,7 @@ class conditionform extends \mod_pulse\automation\condition_base {
         $params = array_merge([
             'courseid'             => $course->id,
             'active'               => ENROL_USER_ACTIVE,
+            'enrolenabled'         => ENROL_INSTANCE_ENABLED,
             'inactivitythreshold1' => $inactivitythreshold,
             'inactivitythreshold2' => $inactivitythreshold,
             'coursestart1' => $coursestart,
@@ -592,7 +595,8 @@ class conditionform extends \mod_pulse\automation\condition_base {
                   FROM (
                       SELECT ue.userid, MIN(ue.timecreated) AS enrolltime
                         FROM {user_enrolments} ue
-                        JOIN {enrol} e ON e.id = ue.enrolid
+                        JOIN {enrol} e ON e.id = ue.enrolid AND e.status = :enrolenabled
+                        JOIN {user} u ON u.id = ue.userid AND u.deleted = 0
                        WHERE e.courseid = :courseid AND ue.status = :active
                        GROUP BY ue.userid
                   ) ue_min

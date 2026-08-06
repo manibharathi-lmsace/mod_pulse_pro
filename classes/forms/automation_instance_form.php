@@ -276,6 +276,8 @@ class automation_instance_form extends automation_template_form {
             $mform->addElement('html', '</div>'); // E.o of actions triggere tab.
         }
 
+        $this->add_precheck_widget($mform);
+
         $mform->addElement('html', html_writer::end_div()); // E.o of actions triggere tab.
     }
 

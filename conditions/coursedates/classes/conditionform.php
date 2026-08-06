@@ -56,10 +56,6 @@ class conditionform extends \mod_pulse\automation\condition_base {
     public function is_user_completed($instancedata, int $userid, ?\completion_info $completion = null) {
         global $DB;
 
-        // echo '<pre>';
-        // print_r($instancedata);
-        // exit;
-
         $courseid = $instancedata->courseid;
         $datetype = $instancedata->condition['coursedates']['type'] ?? 'start';
         $targetdate = $this->get_coursedates_with_delay($instancedata);
@@ -211,6 +207,43 @@ class conditionform extends \mod_pulse\automation\condition_base {
      */
     public function is_user_enrolment_based() {
         return false;
+    }
+
+    /**
+     * Bulk precheck: return a recordset of userids enrolled in the course on or before the
+     * (delay-adjusted) target date. Replaces a per-user is_user_completed() loop in the
+     * scheduled task with a single set-based query.
+     *
+     * Only counts active enrolments through enabled enrolment methods, and excludes deleted
+     * user accounts — mirroring what get_enrolled_users() would have filtered.
+     *
+     * @param int $courseid The course id.
+     * @param int $targetdate The (delay-adjusted) target timestamp; users enrolled at or before this match.
+     * @param string $datetype 'start' or 'end' — 'end' additionally requires the enrolment to still be active.
+     * @return \moodle_recordset Recordset of objects with ->id (userid) and ->username.
+     */
+    public function get_matching_users_recordset(int $courseid, int $targetdate, string $datetype): \moodle_recordset {
+        global $DB;
+
+        $sql = "SELECT DISTINCT u.id, u.username
+                  FROM {user} u
+                  JOIN {user_enrolments} ue ON ue.userid = u.id
+                  JOIN {enrol} e ON e.id = ue.enrolid AND e.status = :enrolenabled
+                 WHERE e.courseid = :courseid
+                   AND ue.timecreated <= :targetdate
+                   AND u.deleted = 0";
+
+        $params = [
+            'courseid' => $courseid,
+            'targetdate' => $targetdate,
+            'enrolenabled' => ENROL_INSTANCE_ENABLED,
+        ];
+
+        if ($datetype === 'end') {
+            $sql .= " AND ue.status = 0";
+        }
+
+        return $DB->get_recordset_sql($sql, $params);
     }
 
     /**

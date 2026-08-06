@@ -63,3 +63,4 @@ $string['selectactivity'] = 'Select activities';
 $string['selectactivity_help'] = "You can configure the <b>Select Activities</b> setting when creating an instance on the course automation page.
     The Select Activities setting allows you to choose from all available activities within your course that have completion criteria configured.
     This selection determines which specific activities will trigger the automation when their completion conditions are met.";
+$string['taskname'] = 'Activity partial-completion automation check';

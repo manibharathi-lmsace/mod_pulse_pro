@@ -130,6 +130,16 @@ class notification {
     const DELAYBASE_LASTCONDITION = 2;
 
     /**
+     * Recipient sentinel: the triggering user themselves.
+     *
+     * Used by site-level conditions (e.g. "not enrolled") whose target recipient has no course
+     * role and therefore cannot be resolved through normal role-based recipient lookup. A
+     * negative value avoids colliding with any real role id.
+     * @var int
+     */
+    const RECIPIENT_TRIGGERUSER = -100;
+
+    /**
      * Represents a length of the dynamic content is teaser.
      * @var int
      */
@@ -636,7 +646,13 @@ class notification {
         // Roles to receive the notifications.
         $roles = $this->notificationdata->recipients;
 
-        if (empty($roles)) {
+        // Detect the "triggering user" sentinel and strip it from the role id list so it isn't
+        // treated as a real role. Used by site-level conditions where the recipient is the user
+        // themselves (no course role to resolve).
+        $selftrigger = in_array((string) self::RECIPIENT_TRIGGERUSER, array_map('strval', (array) $roles), true);
+        $roles = array_filter((array) $roles, fn($v) => (string) $v !== (string) self::RECIPIENT_TRIGGERUSER);
+
+        if (empty($roles) && !$selftrigger) {
             // No roles are defined to recieve notifications. Remove the schedules for this instance.
             $this->remove_schedules();
             return true; // No roles are defined to recieve notifications. Break the schedule creation.
@@ -652,8 +668,8 @@ class notification {
 
         // Get the users for this receipents roles.
         // It returns the user id as instance id for the user role assignment of usercontext users.
-        $users = $this->get_users_withroles($roles, $context, $newuserid);
-        if (empty($users) && empty($custommails)) {
+        $users = !empty($roles) ? $this->get_users_withroles($roles, $context, $newuserid) : [];
+        if (empty($users) && empty($custommails) && !$selftrigger) {
             // No users found with the given roles. Remove the schedules for this instance.
             return true;
         }
@@ -665,6 +681,12 @@ class notification {
         // Student users are the users with course context role assignment with permission to receive notification.
         // It can be student role or any custom role with capability to receive notification.
         $studentusers = array_filter($users, fn($v) => $v->contextlevel == CONTEXT_COURSE && $v->permission == CAP_ALLOW);
+
+        // The triggering user themselves. Scheduled via the same path as student recipients; the
+        // only difference is they need not be course-enrolled (handled by the send-time gate).
+        if ($selftrigger && $newuserid && ($selfuser = \core_user::get_user($newuserid))) {
+            $studentusers[$newuserid] = $selfuser;
+        }
 
         // .... Custom Email Support.
         // Verify the custom emails already exists as user.

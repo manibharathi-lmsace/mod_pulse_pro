@@ -15,22 +15,27 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * DB Events -  Define event observers for "Activity condition".
+ * Define plugin capabilities for the "Not enrolled" condition.
  *
- * @package   pulsecondition_activity
- * @copyright 2023, bdecent gmbh bdecent.de
+ * @package   pulsecondition_notenrolled
+ * @copyright 2026, bdecent gmbh bdecent.de
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
 defined('MOODLE_INTERNAL') || die();
 
-// Course module event observer for the "Activity completion" condition in the pulse 2.0.
-$observers = [
-    [
-        'eventname' => 'core\event\course_module_completion_updated',
-        'callback' => '\pulsecondition_activity\conditionform::module_completed',
+$capabilities = [
+
+    // Capability to configure the "Not enrolled" condition. This condition can target the
+    // entire site population (users with no course enrolment), so it is restricted to
+    // site-level managers and is intentionally NOT granted to course teachers.
+    'pulsecondition/notenrolled:manage' => [
+        'riskbitmask' => RISK_SPAM | RISK_PERSONAL,
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_SYSTEM,
+        'archetypes' => [
+            'manager' => CAP_ALLOW,
+        ],
     ],
-    [
-        'eventname' => 'core\event\user_graded',
-        'callback' => '\pulsecondition_activity\conditionform::module_completed',
-    ],
+
 ];

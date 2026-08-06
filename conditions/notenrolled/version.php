@@ -15,22 +15,14 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * DB Events -  Define event observers for "Activity condition".
+ * Pulse conditions Version - "Not enrolled" condition version and name defined.
  *
- * @package   pulsecondition_activity
- * @copyright 2023, bdecent gmbh bdecent.de
+ * @package   pulsecondition_notenrolled
+ * @copyright 2026, bdecent gmbh bdecent.de
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 defined('MOODLE_INTERNAL') || die();
 
-// Course module event observer for the "Activity completion" condition in the pulse 2.0.
-$observers = [
-    [
-        'eventname' => 'core\event\course_module_completion_updated',
-        'callback' => '\pulsecondition_activity\conditionform::module_completed',
-    ],
-    [
-        'eventname' => 'core\event\user_graded',
-        'callback' => '\pulsecondition_activity\conditionform::module_completed',
-    ],
-];
+$plugin->component = 'pulsecondition_notenrolled';
+$plugin->version = 2026052200;
+$plugin->supported = [401, 405];
