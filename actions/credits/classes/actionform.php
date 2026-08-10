@@ -237,9 +237,6 @@ class actionform extends \mod_pulse\automation\action_base {
             override_manager::remove_user_overrides($userid, $instancedata->id);
 
             $manager = credits_schedule::create_from_templateinstance($instancedata->id, $instancedata);
-            // The instance's conditions have already been re-verified as no longer
-            // satisfied (see instances::trigger_action_event()) - the queued
-            // schedule is genuinely invalid now, so remove it.
             $manager->remove_user_schedules($userid, $instancedata->id);
         }
     }

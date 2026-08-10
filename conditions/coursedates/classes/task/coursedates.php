@@ -83,7 +83,7 @@ class coursedates extends \core\task\scheduled_task {
         $instanceobj   = \mod_pulse\automation\instances::create($instance->id);
         $instancedata  = $instanceobj->get_instance_data();
 
-        // Hoist these — both are course-level constants, identical for every user in the loop.
+        // Same for every user, so compute once outside the loop below.
         $targetdate = $conditionform->get_coursedates_with_delay($instancedata);
         $datetype   = $instancedata->condition['coursedates']['type'] ?? 'start';
 

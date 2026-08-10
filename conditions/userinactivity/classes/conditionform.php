@@ -55,7 +55,6 @@ class conditionform extends \mod_pulse\automation\condition_base {
      */
     const ACTIVITIES_COMPLETION_RELEVANT = 2;
 
-
      /**
       * Verify if the course start or end date has been reached.
       *
@@ -71,14 +70,11 @@ class conditionform extends \mod_pulse\automation\condition_base {
 
         $triggercondition = $instancedata->condition['userinactivity'];
 
-        $type = $triggercondition['type'] ?? self::INACTIVITY_ACCESS;
+        $type = $triggercondition['type'];
         $includedactivities = $triggercondition['includedactivities'] ?? self::ACTIVITIES_ALL;
         $inactivityperiod = $triggercondition['inactivityperiod'] ?? 0;
         $requirepreviousactivity = !empty($triggercondition['requirepreviousactivity']);
         $activityperiod = $triggercondition['activityperiod'] ?? 0;
-        $status = (int) ($triggercondition['status'] ?? 0);
-        // In Upcoming mode, inactivity only starts accruing once the condition was enabled.
-        $upcomingtime = ($status == self::FUTURE) ? (int) ($triggercondition['upcomingtime'] ?? 0) : 0;
 
         if ($inactivityperiod <= 0) {
             return false;
@@ -90,30 +86,13 @@ class conditionform extends \mod_pulse\automation\condition_base {
         // Check if user requires previous activity.
         if ($requirepreviousactivity && $activityperiod > 0) {
             $activitythreshold = $currenttime - $activityperiod;
-            if (
-                !$this->has_user_activity(
-                    $userid, $course, $type, $includedactivities, $activitythreshold, $currenttime, true, 0
-                )
-            ) {
+            if (!$this->has_user_activity($userid, $course, $type, $includedactivities, $activitythreshold, $currenttime, true)) {
                 return false; // User never had activity in the required period.
             }
         }
 
         // Check if user is currently inactive.
-        return !$this->has_user_activity(
-            $userid, $course, $type, $includedactivities, $inactivitythreshold, $currenttime, false, $upcomingtime
-        );
-    }
-
-    /**
-     * User inactivity is not based on user enrolment timing — Upcoming mode must evaluate
-     * all enrolled users (old and new), not just future enrollees, so the generic
-     * enrolment-createtime grandfathering in instances.php is bypassed for this condition.
-     *
-     * @return bool
-     */
-    public function is_user_enrolment_based() {
-        return false;
+        return !$this->has_user_activity($userid, $course, $type, $includedactivities, $inactivitythreshold, $currenttime);
     }
 
     /**
@@ -245,7 +224,6 @@ class conditionform extends \mod_pulse\automation\condition_base {
         $mform->hideIf('condition[userinactivity][activityperiod]', 'condition[userinactivity][status]', 'eq', self::DISABLED);
     }
 
-
     /**
      * Checks if user has activity based on the specified criteria.
      *
@@ -256,21 +234,9 @@ class conditionform extends \mod_pulse\automation\condition_base {
      * @param int $fromtime The start time to check.
      * @param int $totime The end time to check.
      * @param bool $requact
-     * @param int $upcomingtime When set (Upcoming mode only), floors the baseline so inactivity
-     *                          time before the condition was enabled is ignored. Only ever applies
-     *                          to the current-inactivity check ($requact = false) by construction.
      * @return bool True if user has activity, false otherwise.
      */
-    protected function has_user_activity(
-        $userid,
-        $course,
-        $type,
-        $includedactivities,
-        $fromtime,
-        $totime,
-        $requact = false,
-        $upcomingtime = 0
-    ) {
+    protected function has_user_activity($userid, $course, $type, $includedactivities, $fromtime, $totime, $requact = false) {
         global $DB;
 
         // Check when the user was enrolled in the course.
@@ -288,9 +254,8 @@ class conditionform extends \mod_pulse\automation\condition_base {
 
         $enrolment = $DB->get_record_sql($sql, $params, IGNORE_MULTIPLE);
 
-        // Determine the baseline time: course start date, enrolment time, and — in Upcoming
-        // mode — the time the condition was enabled, whichever is latest.
-        $baselinetime = max($enrolment ? $enrolment->enrolltime : 0, $course->startdate, $upcomingtime);
+        // Determine the baseline time (course start date or enrollment time, whichever is later).
+        $baselinetime = max($enrolment ? $enrolment->enrolltime : 0, $course->startdate);
 
         // If user was enrolled after the fromtime threshold, they haven't been enrolled long enough
         // to be considered inactive yet.
@@ -420,16 +385,23 @@ class conditionform extends \mod_pulse\automation\condition_base {
 
         return false;
     }
+
     /**
-     * Bulk precheck: return a recordset of userids in the course who match the
-     * inactivity condition described by $triggercondition. Replaces the per-user
-     * is_user_completed() loop used by the scheduled task.
+     * Find all users in the course who currently match the inactivity condition, in one query,
+     * instead of checking each user one by one.
+     *
+     * Results are ordered by userid so a caller can fetch them in pages: pass the last userid
+     * seen as $aftercursor to get the next page, and $limit to cap how many rows come back.
+     * Used by the batch-processing task so it never has to load huge numbers of users at once.
      *
      * @param \stdClass $course The course object.
-     * @param array $triggercondition The condition settings (status, type, inactivityperiod, ...).
+     * @param array $triggercondition The condition settings (status, type, inactivityperiod).
+     * @param int $aftercursor Only return users with userid > this value. 0 = start from the beginning.
+     * @param int $limit Maximum number of rows to return. 0 = no limit - return the full matching set.
+     *
      * @return \moodle_recordset|null Recordset of objects with ->userid, or null if not applicable.
      */
-    public function get_matching_users_recordset($course, array $triggercondition) {
+    public function get_matching_users_recordset($course, array $triggercondition, int $aftercursor = 0, int $limit = 0) {
         global $DB;
 
         $inactivityperiod = (int) ($triggercondition['inactivityperiod'] ?? 0);
@@ -449,13 +421,13 @@ class conditionform extends \mod_pulse\automation\condition_base {
         $inactivitythreshold = $now - $inactivityperiod;
         $activitythreshold = ($requireprior && $activityperiod > 0) ? ($now - $activityperiod) : 0;
 
-        // Course start and upcomingtime are both scalar constants (not per-user), so they can be
-        // folded here before the SQL is built, requiring no change to the SQL's shape.
+        // The real start date is whichever is later: the course start, or (in Upcoming mode) when
+        // the condition was enabled.
         $flooredstart = max((int) ($course->startdate ?? 0), $upcomingtime);
 
         if ($type == self::INACTIVITY_ACCESS) {
             [$sql, $params] = $this->build_access_inactivity_sql(
-                $course, $inactivitythreshold, $now, $requireprior, $activitythreshold, $flooredstart
+                $course, $inactivitythreshold, $now, $requireprior, $activitythreshold, $flooredstart, $aftercursor
             );
         } else if ($type == self::INACTIVITY_COMPLETION) {
             $cmids = $this->get_relevant_activity_ids_cached($course, $includedactivities);
@@ -463,13 +435,59 @@ class conditionform extends \mod_pulse\automation\condition_base {
                 return null;
             }
             [$sql, $params] = $this->build_completion_inactivity_sql(
-                $course, $cmids, $inactivitythreshold, $now, $requireprior, $activitythreshold, $flooredstart
+                $course, $cmids, $inactivitythreshold, $now, $requireprior, $activitythreshold, $flooredstart, $aftercursor
             );
         } else {
             return null;
         }
 
-        return $DB->get_recordset_sql($sql, $params);
+        return $DB->get_recordset_sql($sql, $params, 0, $limit);
+    }
+
+    /**
+     * Get users who have already been notified for this instance and haven't come back to the
+     * course since.
+     *
+     * @param int $instanceid Automation instance id
+     * @param int $courseid Course id.
+     * @return array userid => true
+     */
+    public function get_already_notified_users(int $instanceid, int $courseid): array {
+        global $DB;
+
+        $notificationinstanceid = $DB->get_field(
+            'pulseaction_notification_ins',
+            'id',
+            ['instanceid' => $instanceid]
+        );
+
+        if (!$notificationinstanceid) {
+            return [];
+        }
+
+        $sql = "SELECT latest.userid
+                  FROM (
+                      SELECT userid, MAX(notifiedtime) AS lastnotified
+                        FROM {pulseaction_notification_sch}
+                       WHERE instanceid = :notificationinstanceid
+                         AND status = :sent
+                         AND notifiedtime > 0
+                       GROUP BY userid
+                  ) latest
+             LEFT JOIN {user_lastaccess} ul
+                    ON ul.userid = latest.userid AND ul.courseid = :courseid
+                 WHERE ul.timeaccess IS NULL
+                    OR ul.timeaccess = 0
+                    OR ul.timeaccess <= latest.lastnotified";
+
+        $params = [
+            'notificationinstanceid' => $notificationinstanceid,
+            'sent' => \pulseaction_notification\notification::STATUS_SENT,
+            'courseid' => $courseid,
+        ];
+
+        $userids = $DB->get_fieldset_sql($sql, $params);
+        return $userids ? array_flip($userids) : [];
     }
 
     /**
@@ -500,9 +518,8 @@ class conditionform extends \mod_pulse\automation\condition_base {
      * @param int $now Current time.
      * @param bool $requireprior Require activity in a prior window.
      * @param int $activitythreshold Lower bound of the prior-activity window.
-     * @param int|null $flooredstart Pre-floored course-start scalar (max of course start date and,
-     *                                in Upcoming mode, the time the condition was enabled). Falls
-     *                                back to the real course start date when null.
+     * @param int|null $flooredstart The effective course-start time to use. Falls back to the real course start date when null.
+     * @param int $aftercursor Only return users with userid > this value (for paging). 0 = start from the beginning.
      * @return array [$sql, $params]
      */
     protected function build_access_inactivity_sql(
@@ -511,7 +528,8 @@ class conditionform extends \mod_pulse\automation\condition_base {
         $now,
         $requireprior,
         $activitythreshold,
-        $flooredstart = null
+        $flooredstart = null,
+        $aftercursor = 0
     ) {
         $coursestart = $flooredstart !== null ? (int) $flooredstart : (int) ($course->startdate ?? 0);
         $params = [
@@ -555,6 +573,13 @@ class conditionform extends \mod_pulse\automation\condition_base {
             $params['priorto']      = $now;
         }
 
+        if ($aftercursor > 0) {
+            $sql .= " AND ue_min.userid > :aftercursor";
+            $params['aftercursor'] = $aftercursor;
+        }
+
+        $sql .= " ORDER BY ue_min.userid ASC";
+
         return [$sql, $params];
     }
 
@@ -568,13 +593,13 @@ class conditionform extends \mod_pulse\automation\condition_base {
      * @param int $now
      * @param bool $requireprior
      * @param int $activitythreshold
-     * @param int|null $flooredstart Pre-floored course-start scalar (max of course start date and,
-     *                                in Upcoming mode, the time the condition was enabled). Falls
-     *                                back to the real course start date when null.
+     * @param int|null $flooredstart The effective course-start time to use. Falls back to the real course start date when null.
+     * @param int $aftercursor Only return users with userid > this value (for paging). 0 to start from the beginning.
      * @return array [$sql, $params]
      */
     protected function build_completion_inactivity_sql($course, array $cmids, $inactivitythreshold, $now,
-                                                       $requireprior, $activitythreshold, $flooredstart = null) {
+                                                       $requireprior, $activitythreshold, $flooredstart = null,
+                                                       $aftercursor = 0) {
         global $DB;
 
         [$insql, $inparams] = $DB->get_in_or_equal($cmids, SQL_PARAMS_NAMED, 'cm');
@@ -627,6 +652,13 @@ class conditionform extends \mod_pulse\automation\condition_base {
                 'priorto'   => $now,
             ]);
         }
+
+        if ($aftercursor > 0) {
+            $sql .= " AND ue_min.userid > :aftercursor";
+            $params['aftercursor'] = $aftercursor;
+        }
+
+        $sql .= " ORDER BY ue_min.userid ASC";
 
         return [$sql, $params];
     }

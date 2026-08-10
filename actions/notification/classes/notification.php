@@ -232,6 +232,21 @@ class notification {
     protected $notificationdata;
 
     /**
+     * Cached result of get_users_by_capability(), so a bulk run doesn't look it up again for
+     * every user it processes.
+     *
+     * @var array|null
+     */
+    protected $cachedrelativeusers = null;
+
+    /**
+     * Cached result of get_users_withroles().
+     *
+     * @var array|null
+     */
+    protected $cachedroleusers = null;
+
+    /**
      * The ID of the action notification table.
      * @var int
      */
@@ -615,13 +630,18 @@ class notification {
      * @param int|bool $newuserid User id, The schedule is only for this user.
      * @param bool $newfrequency Frequency of the schedule.
      * @param bool $fromsave If the schedule is created from save action.
+     * @param bool $skipconditioncheck Passed through to create_schedule_foruser()
+     * @param bool $cacherecipients Reuse the cached recipient list instead of looking it up again.
+     *
      * @return void
      */
     public function create_schedule_forinstance(
         $newenrolment = false,
         $newuserid = null,
         $newfrequency = false,
-        $fromsave = false
+        $fromsave = false,
+        $skipconditioncheck = false,
+        $cacherecipients = false
     ) {
 
         // Generate the notification instance data.
@@ -664,11 +684,31 @@ class notification {
 
         // Fetch the users with capability to receive notification.
         // Consider as student role users. They are relative to course and user context role users.
-        $relativeusers = get_users_by_capability($context, 'pulseaction/notification:receivenotification', 'u.id');
+        // Only cache the result when $cacherecipients is on.
+        if ($cacherecipients) {
+            if ($this->cachedrelativeusers === null) {
+                $this->cachedrelativeusers = get_users_by_capability(
+                    $context,
+                    'pulseaction/notification:receivenotification',
+                    'u.id'
+                );
+            }
+            $relativeusers = $this->cachedrelativeusers;
+        } else {
+            $relativeusers = get_users_by_capability($context, 'pulseaction/notification:receivenotification', 'u.id');
+        }
 
         // Get the users for this receipents roles.
         // It returns the user id as instance id for the user role assignment of usercontext users.
-        $users = !empty($roles) ? $this->get_users_withroles($roles, $context, $newuserid) : [];
+        // When caching, fetch the full set once and let the $newuserid filter below narrow it per user, instead of re-querying.
+        if ($cacherecipients) {
+            if ($this->cachedroleusers === null) {
+                $this->cachedroleusers = !empty($roles) ? $this->get_users_withroles($roles, $context, null, true) : [];
+            }
+            $users = $this->cachedroleusers;
+        } else {
+            $users = !empty($roles) ? $this->get_users_withroles($roles, $context, $newuserid) : [];
+        }
         if (empty($users) && empty($custommails) && !$selftrigger) {
             // No users found with the given roles. Remove the schedules for this instance.
             return true;
@@ -761,7 +801,8 @@ class notification {
                     false,
                     $newfrequency,
                     $suser->id,
-                    $fromsave
+                    $fromsave,
+                    $skipconditioncheck
                 );
             }
         }
@@ -787,7 +828,8 @@ class notification {
                 false,
                 $newfrequency,
                 $user->instanceid,
-                $fromsave
+                $fromsave,
+                $skipconditioncheck
             );
         }
 
@@ -821,7 +863,8 @@ class notification {
                     false,
                     $newfrequency,
                     $suser->id,
-                    $fromsave
+                    $fromsave,
+                    $skipconditioncheck
                 );
             }
         }
@@ -847,7 +890,8 @@ class notification {
                 false,
                 $newfrequency,
                 null,
-                $fromsave
+                $fromsave,
+                $skipconditioncheck
             );
         }
 
@@ -887,6 +931,8 @@ class notification {
      * @param bool $newfrequency
      * @param int|null $relateduserid Schedule user id, if the schdule is for different user than the given user id.
      * @param bool $fromsave If the schedule is created from save action.
+     * @param bool $skipconditioncheck Skip re-checking whether $relateduserid still meets the conditions.
+     *
      * @return int ID of the created schedule.
      */
     public function create_schedule_foruser(
@@ -898,7 +944,8 @@ class notification {
         $newschedule = false,
         $newfrequency = false,
         $relateduserid = null,
-        $fromsave = false
+        $fromsave = false,
+        $skipconditioncheck = false
     ) {
 
         if (empty($this->instancedata)) {
@@ -909,15 +956,15 @@ class notification {
         $relateduserid = $relateduserid ?: $scheduleuserid;
 
         // Instance should be configured with any of conditions. Otherwise stop creating instance (PLS-637).
-        // Verify the user passed the instance condition.
+        // Verify the user passed the instance condition, unless the caller already checked (skipconditioncheck).
         if (
             $this->notificationdata->actionstatus == 0 || !$this->verfiy_instance_contains_condition()
-            || !instances::create($this->notificationdata->instanceid)->find_user_completion_conditions(
+            || (!$skipconditioncheck && !instances::create($this->notificationdata->instanceid)->find_user_completion_conditions(
                 $this->instancedata->condition,
                 $this->instancedata,
                 $relateduserid,
                 $isnewuser
-            )
+            ))
             || ($newschedule
                 && notify_users::is_suppress_reached($this->notificationdata, $relateduserid, $this->instancedata->course, null))
         ) {
@@ -1199,12 +1246,13 @@ class notification {
      * @param array $roles Role ids to fetch
      * @param \context $context
      * @param int $childuserid
+     * @param bool $fulluserctxsuperset When true, ignores $childuserid and returns role assignments.
+     *
      * @return array List of the users.
      */
-    protected function get_users_withroles(array $roles, $context, $childuserid = null) {
+    protected function get_users_withroles(array $roles, $context, $childuserid = null, bool $fulluserctxsuperset = false) {
         global $DB;
 
-        // ...TODO: Cache the role users.
         if (empty($roles)) {
             return [];
         }
@@ -1222,7 +1270,15 @@ class notification {
 
         // Fetch the parent users related to the child user.
         $childcontext = '';
-        if ($childuserid) {
+        if ($fulluserctxsuperset) {
+            // Any role assignment at a user-context - not just users who also hold a course role.
+            $childcontext = "OR (
+                                ra.contextid IN (
+                                    SELECT id FROM {context}
+                                    WHERE contextlevel = " . CONTEXT_USER . "
+                                )
+                            )";
+        } else if ($childuserid) {
             $rolesql .= " JOIN {context} uctx ON uctx.instanceid=:childuserid AND uctx.contextlevel=" . CONTEXT_USER . " ";
             $childcontext = " OR ra.contextid = uctx.id ";
             $inparams['childuserid'] = $childuserid;

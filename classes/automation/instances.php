@@ -61,10 +61,7 @@ class instances extends templates {
     protected $actions;
 
     /**
-     * Memoized result of get_instance_formdata() for this object's lifetime.
-     *
-     * Reused by trigger_action() so bulk callers (e.g. the userinactivity scheduled task)
-     * don't re-run the full template+overrides reload once per matched user.
+     * Cached result of get_instance_formdata(), don't reload it again for every user in a bulk run.
      *
      * @var array|null
      */
@@ -298,7 +295,7 @@ class instances extends templates {
 
         $result = $DB->set_field('pulse_autoinstances', $key, $value, ['id' => $this->instanceid]);
 
-        // Invalidate the memoized form data so subsequent reads pick up the change.
+        // Clear the cache so the next read gets the updated value.
         $this->formdatacache = null;
 
         return $result;
@@ -502,11 +499,21 @@ class instances extends templates {
     /**
      * Trigger the action for a user.
      *
-     * @param int      $userid   The ID of the user.
-     * @param int|null $runtime  The runtime of the action.
-     * @param bool     $newuser  Whether this is a new user.
+     * @param int      $userid            The ID of the user.
+     * @param int|null $runtime           The runtime of the action.
+     * @param bool     $newuser           Whether this is a new user.
+     * @param bool     $sendscheduled     Send the notification right away once scheduled.
+     * @param bool     $skipconditioncheck Skip rechecking the conditions for this user.
+     * @param bool     $cacherecipients   Reuse the recipient list from the last call instead of looking it up again.
      */
-    public function trigger_action($userid, $runtime = null, $newuser = false) {
+    public function trigger_action(
+        $userid,
+        $runtime = null,
+        $newuser = false,
+        $sendscheduled = true,
+        $skipconditioncheck = false,
+        $cacherecipients = false
+    ) {
         global $DB;
         // Check the trigger conditions are ok.
         $instancedata = (object) $this->get_instance_formdata();
@@ -514,7 +521,7 @@ class instances extends templates {
         foreach ($this->actions as $name => $plugin) {
             try {
                 // Send the trigger conditions are statified, then initate the instances based.
-                $plugin->trigger_action($instancedata, $userid, $runtime, $newuser);
+                $plugin->trigger_action($instancedata, $userid, $runtime, $newuser, $sendscheduled, $skipconditioncheck, $cacherecipients);
             } catch (\Exception $e) {
                 // Log the exception and continue with next action.
                 \core\notification::error(get_string('actiontriggererror', 'pulse', $e->getMessage()));
@@ -536,10 +543,6 @@ class instances extends templates {
 
         if ($method == 'user_enrolment_deleted') {
             $userid = $eventdata->relateduserid;
-            // The user may still satisfy this instance's conditions through a
-            // different enrolment method (e.g. the "enrolment" condition only
-            // requires course-wide is_enrolled()). Only cancel/hold pending
-            // schedules and credits when they genuinely no longer qualify.
             if ($this->find_user_completion_conditions($instancedata->condition, $instancedata, $userid)) {
                 return;
             }
@@ -578,7 +581,7 @@ class instances extends templates {
             // Get the condition plugin instance.
             $condition = \mod_pulse\plugininfo\pulsecondition::instance()->get_plugin($component);
             // Status of the condition, some conditions have additional values.
-            $status = (is_array($option)) ? $option['status'] : $option;
+            $status = is_array($option) ? ($option['status'] ?? 0) : $option;
             // No need to check the condition if condition is set as future enrolment and the user is old user.
             if ($status <= 0) {
                 continue;
@@ -586,26 +589,7 @@ class instances extends templates {
 
             $enabled++; // Increase enabled condition count.
 
-            if ($status == condition_base::FUTURE) {
-
-                if ($condition->is_user_enrolment_based() && !$isnewuser) {
-                    $userenroltime = $this->get_user_enrolment_createtime($userid, $instancedata->course);
-                    // User enrolled before the condition is set as upcoming. then not need to verify the condition.
-                    // User is passed this condition by default.
-                    if ($condition->is_user_enrolment_based() && ($userenroltime < $option['upcomingtime'])) {
-                        continue;
-                    }
-                }
-
-                if (
-                    !$condition->is_user_enrolment_based()
-                    && !$condition->is_instance_completed($instancedata, $userid, $completion)
-                ) {
-                    continue;
-                }
-            }
-
-            /* // Condition is only configured to verify the future enrolment.
+            // Condition is only configured to verify the future enrolment.
             if ($status == condition_base::FUTURE && !$isnewuser) {
                 $userenroltime = $this->get_user_enrolment_createtime($userid, $instancedata->course);
 
@@ -614,7 +598,7 @@ class instances extends templates {
                 if ($condition->is_user_enrolment_based() && ($userenroltime < $option['upcomingtime'])) {
                     continue;
                 }
-            } */
+            }
 
             // Verify the user is completed the condition.
             if ($condition->is_user_completed($instancedata, $userid, $completion)) {
@@ -740,7 +724,6 @@ class instances extends templates {
             }
 
             $instancedata->id = $formdata->instanceid;
-
             // Update the template.
             $DB->update_record('pulse_autoinstances', $instancedata);
             // Show the edited success notification.

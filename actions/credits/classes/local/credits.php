@@ -169,9 +169,6 @@ class credits {
         $records = $this->get_scheduled_records($userid);
 
         foreach ($records as $schedule) {
-            // Atomically claim this row before doing any work on it - an event-driven
-            // allocation (right after the schedule was created) can otherwise race the
-            // per-minute cron allocation for the same row and double-credit the user.
             if (!$this->claim_schedule($schedule->id)) {
                 continue; // Already claimed or completed by a concurrent process.
             }
@@ -179,21 +176,13 @@ class credits {
             try {
                 $this->process_credits_allocation($schedule);
             } catch (\Throwable $e) {
-                // Release the claim so the schedule isn't stuck at PROCESSING and can be retried.
-                // (process_credits_allocation() already handles \Exception internally - this is
-                // a safety net for anything else, e.g. a \Error, that would otherwise propagate.)
                 $DB->set_field('pulseaction_credits_sch', 'status', schedule::STATUS_QUEUED, ['id' => $schedule->id]);
             }
         }
     }
 
     /**
-     * Atomically claim a schedule row - flips it from QUEUED to PROCESSING only if it
-     * is still QUEUED. Uses Moodle's Lock API (portable across every DB driver Moodle
-     * supports, unlike a raw "SELECT ... FOR UPDATE") to guarantee that a concurrent
-     * claim attempt on the same row (event-driven allocation racing the cron
-     * allocation) cannot both win. The lock is only held for the instant of the claim
-     * itself, not for the duration of the actual credit allocation.
+     * Claims a queued schedule for processing.
      *
      * @param int $id pulseaction_credits_sch.id
      * @return bool True if this call claimed the row, false if it was already claimed/completed.
@@ -202,8 +191,6 @@ class credits {
         global $DB;
 
         $lockfactory = \core\lock\lock_config::get_lock_factory('mod_pulse');
-        // Non-blocking - if another process already holds this row's lock, someone else
-        // is already claiming/allocating it, so give up immediately rather than waiting.
         $lock = $lockfactory->get_lock('pulseaction_credits_sch_' . $id, 0);
         if (!$lock) {
             return false;

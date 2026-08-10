@@ -118,12 +118,7 @@ class mod_pulse_generator extends testing_module_generator {
             throw new \moodle_exception('Automation instance with reference "' . $data['reference'] . '" already exists.');
         }
 
-        $insdata = [
-            'templateid' => $data['templateid'],
-            'courseid' => $data['courseid'],
-            'timemodified' => time(),
-            'status' => 1,
-        ];
+        $insdata = ['templateid' => $data['templateid'], 'courseid' => $data['courseid'], 'timemodified' => time(), 'status' => 1];
         $instanceid = $DB->insert_record('pulse_autoinstances', (object) $insdata);
 
         $instancedata = array_filter((array) $data, function ($key) {

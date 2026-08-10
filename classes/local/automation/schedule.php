@@ -115,7 +115,6 @@ abstract class schedule {
      */
     const STATUS_PROCESSING = 4;
 
-
     /**
      * The record of the action instance with templates and general conditions.
      *

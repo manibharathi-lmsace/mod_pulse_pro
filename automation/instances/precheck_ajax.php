@@ -188,6 +188,29 @@ $basesql  = 'SELECT u.id FROM {user} u ' . implode(' ', $joins);
 $basesql .= ' WHERE u.deleted = 0 AND u.suspended = 0 AND u.confirmed = 1 AND u.id <> :pch_guestid';
 $params['pch_guestid'] = $CFG->siteguest ?? 1;
 
+// Check if any enabled plugin requires skipping the enrolment gate.
+// If no plugin skips the gate and this isn't the site course, add a SQL filter
+// ...to ensure the user has an active enrolment in the course.
+$skipenrolgate = false;
+foreach ($enabled as $name => $cfg) {
+    $plugin = pulsecondition::instance()->get_plugin($name);
+    if ($plugin && method_exists($plugin, 'schedule_skip_enrolment_gate') && $plugin->schedule_skip_enrolment_gate()) {
+        $skipenrolgate = true;
+        break;
+    }
+}
+if (!$skipenrolgate && $instancedata->courseid != SITEID) {
+    $basesql .= ' AND EXISTS (SELECT 1 FROM {user_enrolments} pch_ue
+                                JOIN {enrol} pch_e ON pch_e.id = pch_ue.enrolid
+                               WHERE pch_ue.userid = u.id AND pch_ue.status = 0
+                                 AND pch_e.courseid = :pch_courseid
+                                 AND (pch_ue.timestart = 0 OR pch_ue.timestart <= :pch_now1)
+                                 AND (pch_ue.timeend = 0 OR pch_ue.timeend > :pch_now2))';
+    $params['pch_courseid'] = $instancedata->courseid;
+    $params['pch_now1'] = time();
+    $params['pch_now2'] = time();
+}
+
 if ($useprefilter) {
     $basesql .= ' AND (' . implode($op, $wheres) . ')';
 }

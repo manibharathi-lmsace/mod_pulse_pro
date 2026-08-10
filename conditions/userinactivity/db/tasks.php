@@ -28,7 +28,7 @@ $tasks = [
     [
         'classname' => 'pulsecondition_userinactivity\task\userinactivity',
         'blocking' => 0,
-        'minute' => '*/30',
+        'minute' => '*/15',
         'hour' => '*',
         'day' => '*',
         'dayofweek' => '*',

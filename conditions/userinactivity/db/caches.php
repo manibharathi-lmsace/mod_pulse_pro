@@ -15,23 +15,21 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Task definitions for activity condition.
+ * Define plugin caches.
  *
- * @package   pulsecondition_activity
+ * @package   pulsecondition_userinactivity
  * @copyright 2026, bdecent gmbh bdecent.de
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$tasks = [
-    [
-        'classname' => 'pulsecondition_activity\task\activity',
-        'blocking' => 0,
-        'minute' => '*',
-        'hour' => '*',
-        'day' => '*',
-        'month' => '*',
-        'dayofweek' => '*',
+$definitions = [
+    // Tracks whether a batch task chain is already running for an instance (see
+    // classes/task/process_batch.php), so we don't start a second one.
+    'batchprogress' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'simpledata' => true,
     ],
 ];

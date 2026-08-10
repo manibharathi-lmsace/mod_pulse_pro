@@ -456,10 +456,20 @@ class actionform extends \mod_pulse\automation\action_base {
      * @param int $expectedtime
      * @param bool $newuser
      * @param bool $sendscheduled Send the created scheduled notification immediately.
+     * @param bool $skipconditioncheck Skip re-checking the conditions for $userid.
+     * @param bool $cacherecipients
      *
      * @return void
      */
-    public function trigger_action($instancedata, $userid, $expectedtime = null, $newuser = false, $sendscheduled = true) {
+    public function trigger_action(
+        $instancedata,
+        $userid,
+        $expectedtime = null,
+        $newuser = false,
+        $sendscheduled = true,
+        $skipconditioncheck = false,
+        $cacherecipients = false
+    ) {
 
         if (!isset($instancedata->pulsenotification_id)) {
             return false;
@@ -470,7 +480,7 @@ class actionform extends \mod_pulse\automation\action_base {
 
         $notification->set_notification_data($notificationinstance, $instancedata);
 
-        $notification->create_schedule_forinstance($newuser, $userid ?: null, false);
+        $notification->create_schedule_forinstance($newuser, $userid ?: null, false, false, $skipconditioncheck, $cacherecipients);
 
         // Send the scheduled notifications for this user.
         if ($sendscheduled) {
@@ -496,10 +506,6 @@ class actionform extends \mod_pulse\automation\action_base {
             $notification = notification::instance($notificationid);
             $notification->set_notification_data($instancedata->actions['notification'], $instancedata);
             $userid = $eventdata->relateduserid;
-
-            // The instance's conditions have already been re-verified as no longer
-            // satisfied (see instances::trigger_action_event()) - the queued
-            // schedule is genuinely invalid now, so remove it.
             $notification->remove_user_schedules($userid);
         }
     }
@@ -798,7 +804,6 @@ class actionform extends \mod_pulse\automation\action_base {
             get_string('dynamiccontent', 'pulseaction_notification'),
             $modules
         );
-        $dynamic->updateAttributes(['data-contentmods' => json_encode(array_values($contentmods))]);
         $mform->insertElementBefore($dynamic, 'pulsenotification_footercontent_editor');
         $mform->addHelpButton('pulsenotification_dynamiccontent', 'dynamiccontent', 'pulseaction_notification');
 
@@ -864,7 +869,7 @@ class actionform extends \mod_pulse\automation\action_base {
         $PAGE->requires->js_call_amd(
             'pulseaction_notification/chaptersource',
             'updateChapter',
-            ['contextid' => $PAGE->context->id]
+            ['contextid' => $PAGE->context->id, 'contentmods' => $contentmods]
         );
     }
 
@@ -1149,7 +1154,6 @@ class actionform extends \mod_pulse\automation\action_base {
         $PAGE->requires->js_call_amd('pulseaction_notification/chaptersource', 'toogleEmailVarsVisibility', [
             'actionstatus' => '#id_pulsenotification_actionstatus']);
     }
-
 
     /**
      * Get list of options in 30 mins timeinterval for 24 hrs.

@@ -657,60 +657,6 @@ class behat_pulse extends behat_base {
     }
 
     /**
-     * Set a course's end date to an offset from the current time.
-     *
-     * @Given /^I set course "([^"]*)" end date to "([^"]*)" (minutes|hours|days|weeks)$/
-     * @param string $courseshortname  Course shortname.
-     * @param string $offset  Signed time offset
-     * @param string $unit    Time unit: minutes, hours, days, or weeks.
-     */
-    public function i_set_course_end_date($courseshortname, $offset, $unit) {
-        global $DB;
-
-        $course  = $DB->get_record('course', ['shortname' => $courseshortname], '*', MUST_EXIST);
-        $newtime = strtotime("$offset $unit", time());
-
-        $DB->set_field('course', 'enddate', $newtime, ['id' => $course->id]);
-        rebuild_course_cache($course->id, true);
-    }
-
-    /**
-     * Backdate the "Upcoming" enabled time (upcomingtime) for a condition override on an
-     * automation instance. Useful for testing time-based conditions (e.g. user inactivity)
-     * without waiting in real time for the inactivity period to elapse after enabling.
-     *
-     * @Given /^I set upcoming enabled time to "([^"]*)" (minutes|hours|days|weeks) for condition "([^"]*)" in instance "([^"]*)"$/
-     * @param string $offset The time offset (can be negative or positive number).
-     * @param string $unit The time unit (minutes, hours, days, or weeks).
-     * @param string $triggercondition The condition component name (e.g. "userinactivity").
-     * @param string $insreference The automation instance reference.
-     */
-    public function i_set_upcoming_enabled_time($offset, $unit, $triggercondition, $insreference) {
-        global $DB;
-
-        $instanceid = $DB->get_field_sql(
-            "SELECT ai.id
-               FROM {pulse_autoinstances} ai
-               JOIN {pulse_autotemplates_ins} ati ON ati.instanceid = ai.id
-              WHERE ati.insreference = :insreference",
-            ['insreference' => $insreference],
-            MUST_EXIST
-        );
-
-        $newtime = strtotime("$offset $unit", time());
-
-        if (!$DB->record_exists('pulse_condition_overrides', ['instanceid' => $instanceid, 'triggercondition' => $triggercondition])) {
-            throw new ExpectationException(
-                "No condition override for '{$triggercondition}' found on instance '{$insreference}'",
-                $this->getSession()
-            );
-        }
-
-        $DB->set_field('pulse_condition_overrides', 'upcomingtime', $newtime,
-            ['instanceid' => $instanceid, 'triggercondition' => $triggercondition]);
-    }
-
-    /**
      * Check that the automatic completion condition badge shows the expected text.
      * Moodle 5.02+ replaced .badge with .automatic-completion-is-complete.
      *

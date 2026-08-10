@@ -359,9 +359,6 @@ class instance extends \mod_pulse\addon\base {
         global $DB;
         $userid = $event->relateduserid; // Unenrolled user id.
         $courseid = $event->courseid;
-
-        // The user may still be enrolled via a different method - only purge
-        // historical reaction data once they have no enrolment left at all.
         if (is_enrolled(\context_course::instance($courseid), $userid)) {
             return true;
         }

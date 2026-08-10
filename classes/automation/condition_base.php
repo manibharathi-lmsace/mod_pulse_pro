@@ -24,8 +24,6 @@
 
 namespace mod_pulse\automation;
 
-use stdClass;
-
 /**
  * Automation conditions base.
  */
@@ -144,6 +142,7 @@ abstract class condition_base {
      * @param bool $newuser Is the trigger instance for new user.
      */
     public function trigger_instance(int $instanceid, int $userid, $expectedtime = null, $newuser = false) {
+
         static $triggered = [];
 
         $key = $instanceid . '_' . $userid;
@@ -164,17 +163,6 @@ abstract class condition_base {
      * @return bool True if user has completed, otherwise false.
      */
     public function is_user_completed($notification, int $userid) {
-        return true;
-    }
-
-    /**
-     * Is the instance completed for the user.
-     *
-     * @param mixed $instancedata The instance data.
-     * @param int $userid The user ID.
-     * @return bool True if the instance is completed for the user, otherwise false.
-     */
-    public function is_instance_completed(stdClass $instancedata, int $userid, $completion = null) {
         return true;
     }
 

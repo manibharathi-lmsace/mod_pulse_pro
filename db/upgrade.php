@@ -288,9 +288,6 @@ function xmldb_pulse_upgrade($oldversion) {
 
     if ($oldversion < 2024122706) {
         // Define field frequencylimit for notification table.
-        // Guard with table_exists: on sites upgrading from a pre-automation version the table
-        // may not exist yet; insert_pulse_automation() (called from 2026032501) will create it
-        // with this field already included.
         $table = new xmldb_table('pulse_autotemplates');
         $field = new xmldb_field('frequencylimit', XMLDB_TYPE_INTEGER, '9', null, null, null, '1', 'status');
 

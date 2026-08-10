@@ -72,10 +72,6 @@ class eventobserver {
 
         $userid = $event->relateduserid; // Unenrolled user id.
         $courseid = $event->courseid;
-
-        // The user may still be enrolled via a different method (e.g. a second
-        // cohort sync, or manual + self enrolment). Only purge their historical
-        // pulse data once they have no remaining enrolment in the course at all.
         if (!is_enrolled(\context_course::instance($courseid), $userid)) {
             // Pulse extend enrolment deleted event.
             extendpro::pulse_extend_general('event_user_enrolment_deleted', ['event' => $event]);
@@ -92,10 +88,6 @@ class eventobserver {
                 $DB->delete_records_select('pulse_users', $select, $inparams);
             }
         }
-
-        // Always re-verify pending/queued automation output against current
-        // conditions, regardless of whether the user remains enrolled - see
-        // instances::trigger_action_event() for the per-instance condition check.
         self::trigger_action_event('user_enrolment_deleted', $event);
 
         return true;

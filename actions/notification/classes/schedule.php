@@ -154,9 +154,6 @@ class schedule {
         $modules = $this->get_modules_dynamic_content($schedules);
 
         foreach ($schedules as $sid => $schedule) {
-            // Atomically claim this row before doing any work on it - an event-driven
-            // send (right after the schedule was created) can otherwise race the
-            // per-minute cron send for the same row and deliver the notification twice.
             if (!$this->claim_schedule($schedule->id)) {
                 continue; // Already claimed or sent by a concurrent process.
             }
@@ -172,12 +169,7 @@ class schedule {
     }
 
     /**
-     * Atomically claim a schedule row - flips it from QUEUED to PROCESSING only if it
-     * is still QUEUED. Uses Moodle's Lock API (portable across every DB driver Moodle
-     * supports, unlike a raw "SELECT ... FOR UPDATE") to guarantee that a concurrent
-     * claim attempt on the same row (event-driven send racing the cron send) cannot
-     * both win. The lock is only held for the instant of the claim itself, not for the
-     * duration of the actual send.
+     * Claims a queued schedule for processing.
      *
      * @param int $id pulseaction_notification_sch.id
      * @return bool True if this call claimed the row, false if it was already claimed/sent.
@@ -186,8 +178,6 @@ class schedule {
         global $DB;
 
         $lockfactory = \core\lock\lock_config::get_lock_factory('mod_pulse');
-        // Non-blocking - if another process already holds this row's lock, someone else
-        // is already claiming/sending it, so give up immediately rather than waiting.
         $lock = $lockfactory->get_lock('pulseaction_notification_sch_' . $id, 0);
         if (!$lock) {
             return false;
@@ -470,7 +460,7 @@ class schedule {
             AND (
                 $skipclause
                 OR (
-                    active_enrols.activeenrolment <> 0 OR nologin_u.id IS NOT NULL
+                    (active_enrols.activeenrolment <> 0 OR nologin_u.id IS NOT NULL)
                     AND c.visible = 1
                     AND (
                         nologin_u.id IS NOT NULL

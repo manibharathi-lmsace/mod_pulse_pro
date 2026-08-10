@@ -112,7 +112,6 @@ class conditionform extends \mod_pulse\automation\condition_base {
         return ['join' => '', 'where' => $where, 'params' => $params];
     }
 
-
     /**
      * Returns the timestamp when the user was enrolled in the course.
      *

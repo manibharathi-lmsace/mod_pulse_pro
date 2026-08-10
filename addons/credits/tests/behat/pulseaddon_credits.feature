@@ -121,7 +121,8 @@ Feature: Credits using pulse module.
     And I should see "1 enrolled users"
     And I trigger cron
     And I am on "Test" course homepage
-    And I navigate to "Users > Browse list of users" in site administration
+    Then I navigate to "Users > Browse list of users" in site administration
+    And I change viewport size to "large"
     And I should see "student user 2"
     And I open the action menu in "student user 2" "table_row"
     And I choose "Edit" in the open action menu

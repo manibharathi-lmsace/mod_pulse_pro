@@ -14,12 +14,12 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Chapter datasource for the notification action autocomplete selector.
+ * Frameworks datasource.
  *
  * This module is compatible with core/form-autocomplete.
  *
- * @module     pulseaction_notification/chaptersource
- * @copyright  2021 bdecent gmbh <https://bdecent.de>
+ * @module     tool_lp/frameworks_datasource
+ * @copyright  2016 Frédéric Massart - FMCorz.net
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -167,17 +167,12 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/fragment',
                 }).fail(failure);
             },
 
-            updateChapter: function (ctxID) {
+            updateChapter: function (ctxID, contentMods) {
 
                 const SELECTORS = {
                     chaperType: "#id_pulsenotification_contenttype",
                     mod: "#id_pulsenotification_dynamiccontent"
                 };
-
-                // Read the list of page/book cm ids from the data attribute written by PHP
-                // instead of passing it through js_call_amd (which has a 1024-char limit).
-                var modEl = document.querySelector(SELECTORS.mod);
-                var contentMods = modEl ? JSON.parse(modEl.dataset.contentmods || 'null') : null;
 
                 // Disable the content type option for modules other than book and page.
                 if (contentMods !== null) {

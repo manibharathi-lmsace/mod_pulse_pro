@@ -126,21 +126,15 @@ class conditionform extends \mod_pulse\automation\condition_base {
             $result = [];
 
             $sql = "SELECT count(*) FROM {facetoface_signups} f2f_su
-                      JOIN {facetoface_sessions} f2f_ss ON f2f_ss.id = f2f_su.sessionid
-                      JOIN {facetoface_signups_status} f2f_sts ON f2f_su.id = f2f_sts.signupid
-                     WHERE f2f_ss.facetoface = :f2fid
-                       AND f2f_su.userid = :userid AND f2f_sts.superceded != 1
-                       AND f2f_sts.statuscode >= :code AND f2f_sts.statuscode < :statuscode";
-
-            if ($instancedata->condition['session']['upcomingtime']) {
-                $sql .= " AND f2f_sts.timecreated > :upcomingtime ";
-            }
+            JOIN {facetoface_sessions} f2f_ss ON f2f_ss.id = f2f_su.sessionid
+            JOIN {facetoface_signups_status} f2f_sts ON f2f_su.id = f2f_sts.signupid
+            WHERE f2f_ss.facetoface = :f2fid AND f2f_su.userid = :userid
+            AND f2f_sts.superceded != 1
+            AND f2f_sts.statuscode >= :code AND f2f_sts.statuscode < :statuscode";
 
             $existingsignup = $DB->count_records_sql($sql, [
                     'f2fid' => $modules, 'userid' => $userid,
-                    'code' => MDL_F2F_STATUS_REQUESTED,
-                    'statuscode' => MDL_F2F_STATUS_NO_SHOW,
-                    'upcomingtime' => $instancedata->condition['session']['upcomingtime'],
+                    'code' => MDL_F2F_STATUS_REQUESTED, 'statuscode' => MDL_F2F_STATUS_NO_SHOW,
                 ]);
 
             return ($existingsignup) ? true : false;
@@ -396,14 +390,5 @@ class conditionform extends \mod_pulse\automation\condition_base {
      */
     public function delay_support_plugins() {
         return true;
-    }
-
-    /**
-     * Indicates that this condition uses session signup time instead of enrolment time.
-     *
-     * @return bool
-     */
-    public function is_user_enrolment_based() {
-        return false;
     }
 }

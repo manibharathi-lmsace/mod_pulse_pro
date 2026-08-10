@@ -26,4 +26,4 @@ defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'pulsecondition_coursegroup';
 $plugin->version   = 2025111103;
-$plugin->supported = [401, 502];
+$plugin->supported = [401, 502];                    // Moodle versions supported (4.1 â†’ 4.5).

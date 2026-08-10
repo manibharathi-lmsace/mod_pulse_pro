@@ -297,7 +297,7 @@ class conditionform extends \mod_pulse\automation\condition_base {
 
         // Selected Activities method.
         if ($completiontype == self::ACTVITY_COMPLETION_METHOD_SELECTACTIVITY) {
-            $activityoperator = $additional['activityoperator'] ?? self::ACTIVITY_OPERATOR_ANY;
+            $activityoperator = $additional['activityoperator'] ?? self::ACTIVITY_OPERATOR_ALL;
 
             if (empty($modules)) {
                 return false;
@@ -567,11 +567,7 @@ class conditionform extends \mod_pulse\automation\condition_base {
             $cmid = $data['contextinstanceid'];
         }
 
-        $userid = $data['relateduserid'] ?? $data['userid'] ?? null;
-        
-        if (!$userid) {
-            return true;
-        }
+        $userid = $data['relateduserid'];
 
         // Self condition instance.
         $condition = new self();

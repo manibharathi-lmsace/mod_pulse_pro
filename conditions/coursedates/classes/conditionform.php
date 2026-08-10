@@ -24,8 +24,6 @@
 
 namespace pulsecondition_coursedates;
 
-use mod_pulse\automation\instances;
-
 /**
  * Automation course dates condition form.
  */
@@ -81,25 +79,6 @@ class conditionform extends \mod_pulse\automation\condition_base {
 
         if (!empty($enrolment->timecreated) && $enrolment->timecreated <= $targetdate) {
             return true;
-        }
-
-        return false;
-    }
-
-    public function is_instance_completed(\stdClass $instancedata, int $userid, $completion = null) {
-        try {
-            if (isset($instancedata->condition['coursedates'])) {
-                $inscondition = $instancedata->condition['coursedates'];
-                $datetype = $inscondition['type'] ?? 'start';
-
-                $conditiontime = $instancedata->course->{$datetype . 'date'} ?? 0;
-                if ($inscondition['upcomingtime'] <= $conditiontime) {
-                    return true;
-                }
-            }
-
-        } catch (\Exception $e) {
-            return false;
         }
 
         return false;
@@ -210,17 +189,15 @@ class conditionform extends \mod_pulse\automation\condition_base {
     }
 
     /**
-     * Bulk precheck: return a recordset of userids enrolled in the course on or before the
-     * (delay-adjusted) target date. Replaces a per-user is_user_completed() loop in the
-     * scheduled task with a single set-based query.
+     * Find all users enrolled in the course on or before the delay-adjusted target date, in
+     * one query - used by the scheduled task instead of checking each user one by one.
      *
-     * Only counts active enrolments through enabled enrolment methods, and excludes deleted
-     * user accounts — mirroring what get_enrolled_users() would have filtered.
+     * Only counts active enrolments and skips deleted accounts, same as get_enrolled_users().
      *
      * @param int $courseid The course id.
-     * @param int $targetdate The (delay-adjusted) target timestamp; users enrolled at or before this match.
-     * @param string $datetype 'start' or 'end' — 'end' additionally requires the enrolment to still be active.
-     * @return \moodle_recordset Recordset of objects with ->id (userid) and ->username.
+     * @param int $targetdate The target timestamp, users enrolled at or before this match.
+     * @param string $datetype start or end — end additionally requires the enrolment to still be active.
+     * @return \moodle_recordset Recordset of objects with id (userid) and username.
      */
     public function get_matching_users_recordset(int $courseid, int $targetdate, string $datetype): \moodle_recordset {
         global $DB;
