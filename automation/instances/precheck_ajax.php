@@ -83,19 +83,27 @@ function pulse_precheck_normalise(array $data): array {
             $data[$k] = 0;
             continue;
         }
-        if (array_key_exists('number', $v) && array_key_exists('timeunit', $v)
-                && is_numeric($v['number']) && is_numeric($v['timeunit'])) {
+        if (
+            array_key_exists('number', $v) && array_key_exists('timeunit', $v)
+            && is_numeric($v['number']) && is_numeric($v['timeunit'])
+        ) {
             // Moodle duration element: total seconds = number * timeunit.
             $data[$k] = (int) round(((float) $v['number']) * ((float) $v['timeunit']));
             continue;
         }
         if (array_key_exists('day', $v) && array_key_exists('month', $v) && array_key_exists('year', $v)) {
-            // date_selector / date_time_selector -> unix timestamp.
-            $hour   = isset($v['hour'])   ? (int) $v['hour']   : 0;
+            // Convert date_selector / date_time_selector value to a unix timestamp.
+            $hour = isset($v['hour']) ? (int) $v['hour'] : 0;
             $minute = isset($v['minute']) ? (int) $v['minute'] : 0;
             $data[$k] = make_timestamp(
-                (int) $v['year'], (int) $v['month'], (int) $v['day'],
-                $hour, $minute, 0, 99, true
+                (int) $v['year'],
+                (int) $v['month'],
+                (int) $v['day'],
+                $hour,
+                $minute,
+                0,
+                99,
+                true
             );
             continue;
         }

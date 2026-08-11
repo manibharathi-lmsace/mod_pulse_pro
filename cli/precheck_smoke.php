@@ -19,6 +19,8 @@
  * and compare with the per-user engine path.
  *
  * @package   mod_pulse
+ * @copyright 2026, bdecent gmbh bdecent.de
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 define('CLI_SCRIPT', true);

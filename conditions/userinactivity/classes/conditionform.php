@@ -603,7 +603,7 @@ class conditionform extends \mod_pulse\automation\condition_base {
         global $DB;
 
         [$insql, $inparams] = $DB->get_in_or_equal($cmids, SQL_PARAMS_NAMED, 'cm');
-        [$insql_ever, $inparams_ever] = $DB->get_in_or_equal($cmids, SQL_PARAMS_NAMED, 'evcm');
+        [$insqlever, $inparamsever] = $DB->get_in_or_equal($cmids, SQL_PARAMS_NAMED, 'evcm');
         $coursestart = $flooredstart !== null ? (int) $flooredstart : (int) ($course->startdate ?? 0);
 
         $params = array_merge([
@@ -614,7 +614,7 @@ class conditionform extends \mod_pulse\automation\condition_base {
             'inactivitythreshold2' => $inactivitythreshold,
             'coursestart1' => $coursestart,
             'coursestart2' => $coursestart,
-        ], $inparams, $inparams_ever);
+        ], $inparams, $inparamsever);
 
         $sql = "SELECT ue_min.userid
                   FROM (

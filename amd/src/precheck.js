@@ -24,8 +24,8 @@
  * @copyright  2026, bdecent gmbh bdecent.de
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-define("mod_pulse/precheck", ['jquery', 'core/modal_factory', 'core/str', 'core/notification'],
-    function($, ModalFactory, Str, Notification) {
+define("mod_pulse/precheck", ['jquery', 'core/modal_cancel', 'core/str', 'core/notification'],
+    function($, ModalCancel, Str, Notification) {
 
         var SELECTORS = {
             WIDGET: '#pulse-precheck',
@@ -234,12 +234,12 @@ define("mod_pulse/precheck", ['jquery', 'core/modal_factory', 'core/str', 'core/
                 activeModal.setBody(body);
                 return;
             }
-            ModalFactory.create({
-                type: ModalFactory.types.CANCEL,
+            ModalCancel.create({
                 title: s[0],
                 body: body,
                 large: true,
-            }).done(function(modal) {
+                removeOnClose: true,
+            }).then(function(modal) {
                 activeModal = modal;
                 modal.getRoot().on('hidden.bs.modal', function() {
                     activeModal = null;
@@ -381,7 +381,7 @@ define("mod_pulse/precheck", ['jquery', 'core/modal_factory', 'core/str', 'core/
         };
 
         var escapeHtml = function(s) {
-            return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+            return String(s === null ? '' : s).replace(/[&<>"']/g, function(c) {
                 return {
                     '&': '&amp;', '<': '&lt;', '>': '&gt;',
                     '"': '&quot;', "'": '&#39;',

@@ -33,6 +33,8 @@ $string['condition_help'] = '<b>Not enrolled:</b> Triggers when a user has no ac
 <b>Upcoming:</b> Only applies to users who signed up after the instance was created.
 
 Combine this condition with an account-age window to reach users who recently signed up but have not enrolled, or combine it with the Cohort or Course completion conditions for marketing and follow-up campaigns.';
+$string['courses'] = 'Courses';
+$string['courses_help'] = 'The course(s) the user must NOT be enrolled in for the condition to be satisfied. Only used when the enrolment scope is set to "Specific course(s)".';
 $string['notenrolled:manage'] = 'Configure the "Not enrolled" automation condition';
 $string['pluginname'] = 'Not enrolled';
 $string['scope'] = 'Enrolment scope';
@@ -41,8 +43,6 @@ $string['scope_help'] = '<b>Any course:</b> The condition is satisfied only when
 <b>Specific course(s):</b> The condition is satisfied when the user is not actively enrolled in the selected course(s). Use this for follow-up campaigns, e.g. "completed course A and not yet enrolled in course B".';
 $string['scopeany'] = 'Any course';
 $string['scopespecific'] = 'Specific course(s)';
-$string['courses'] = 'Courses';
-$string['courses_help'] = 'The course(s) the user must NOT be enrolled in for the condition to be satisfied. Only used when the enrolment scope is set to "Specific course(s)".';
+$string['taskname'] = 'Pulse "Not enrolled" condition scan';
 $string['window'] = 'Minimum account age';
 $string['window_help'] = 'Only consider users whose account is at least this old. The condition is satisfied once <code>user.timecreated + minimum age &le; now</code>. Combine with the notification action&rsquo;s <em>Delay base = Last condition</em> to time the message at exactly signup + this duration (e.g. set this to 1 week to nudge users that still have not enrolled one week after signing up). Leave at zero to ignore account age entirely.';
-$string['taskname'] = 'Pulse "Not enrolled" condition scan';

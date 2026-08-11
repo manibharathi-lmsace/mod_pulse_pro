@@ -520,8 +520,16 @@ class instances extends templates {
 
         foreach ($this->actions as $name => $plugin) {
             try {
-                // Send the trigger conditions are statified, then initate the instances based.
-                $plugin->trigger_action($instancedata, $userid, $runtime, $newuser, $sendscheduled, $skipconditioncheck, $cacherecipients);
+                // Trigger the action once its conditions are satisfied, passing instance state.
+                $plugin->trigger_action(
+                    $instancedata,
+                    $userid,
+                    $runtime,
+                    $newuser,
+                    $sendscheduled,
+                    $skipconditioncheck,
+                    $cacherecipients
+                );
             } catch (\Exception $e) {
                 // Log the exception and continue with next action.
                 \core\notification::error(get_string('actiontriggererror', 'pulse', $e->getMessage()));

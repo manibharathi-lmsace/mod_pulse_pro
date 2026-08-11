@@ -239,7 +239,7 @@ class conditionform extends \mod_pulse\automation\condition_base {
             return false;
         }
 
-        // "Upcoming" status: only applies to users who signed up after the condition was set up.
+        // Upcoming status: only applies to users who signed up after the condition was set up.
         $upcomingtime = (int) ($config['upcomingtime'] ?? 0);
         if ($upcomingtime > 0 && $user->timecreated < $upcomingtime) {
             return false;
