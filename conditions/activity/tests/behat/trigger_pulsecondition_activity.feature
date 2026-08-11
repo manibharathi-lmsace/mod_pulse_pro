@@ -99,7 +99,6 @@ Feature: Activity trigger event.
     And I click on "#id_override_condition_activity_status" "css_element" in the "#fitem_id_condition_activity_status" "css_element"
     And I set the field "condition[activity][status]" to "All"
     And I wait "5" seconds
-    And I click on "#id_override_condition_activity_modules" "css_element" in the "#fitem_id_condition_activity_modules" "css_element"
     And I set the field "Select activities" in the "#fitem_id_condition_activity_modules" "css_element" to "Assign1, Assign2, Forum1, Forum2, TestPage 01, TestPage 02"
     And I click on "#id_override_condition_activity_acompletionmethod" "css_element" in the "#fitem_id_condition_activity_acompletionmethod" "css_element"
     And I set the field "condition[activity][acompletionmethod]" to "Activity count"
@@ -172,7 +171,6 @@ Feature: Activity trigger event.
     Then the field "Trigger operator" matches value "All"
     And I click on "#id_override_condition_activity_status" "css_element" in the "#fitem_id_condition_activity_status" "css_element"
     And I set the field "condition[activity][status]" to "Upcoming"
-    And I click on "#id_override_condition_activity_modules" "css_element" in the "#fitem_id_condition_activity_modules" "css_element"
     And I set the field "Select activities" in the "#fitem_id_condition_activity_modules" "css_element" to "Assign3, Assign4, Assign5"
     And I click on "#id_override_condition_activity_acompletionmethod" "css_element" in the "#fitem_id_condition_activity_acompletionmethod" "css_element"
     And I set the field "condition[activity][acompletionmethod]" to "Selected activities"
@@ -263,9 +261,15 @@ Feature: Activity trigger event.
     And I log in as "admin"
     And the following "grade grades" exist:
       | gradeitem | user     | grade |
-      | Assign3   | student2 | 5.00  |
       | Assign4   | student2 | 5.00  |
       | Assign5   | student2 | 5.00  |
+
+    And I am on the "Assign3" "assign activity" page
+    And I navigate to "Submissions" in current page administration
+    And I click on "Grade" "link" in the ".tertiary-navigation" "css_element"
+    And I set the field "Change user" to "student User 2"
+    And I set the field "grade" to "5.00"
+    And I press "Save changes"
 
     # Completion Status
     # Check the schedule for the instance for No group
@@ -297,7 +301,6 @@ Feature: Activity trigger event.
     Then the field "Trigger operator" matches value "All"
     And I click on "#id_override_condition_activity_status" "css_element" in the "#fitem_id_condition_activity_status" "css_element"
     And I set the field "condition[activity][status]" to "All"
-    And I click on "#id_override_condition_activity_modules" "css_element" in the "#fitem_id_condition_activity_modules" "css_element"
     And I set the field "Select activities" in the "#fitem_id_condition_activity_modules" "css_element" to "Assign3, Assign4, Assign5"
     And I click on "#id_override_condition_activity_acompletionmethod" "css_element" in the "#fitem_id_condition_activity_acompletionmethod" "css_element"
     And I set the field "condition[activity][acompletionmethod]" to "Selected activities"
@@ -403,7 +406,6 @@ Feature: Activity trigger event.
     Then the field "Trigger operator" matches value "All"
     And I click on "#id_override_condition_activity_status" "css_element" in the "#fitem_id_condition_activity_status" "css_element"
     And I set the field "condition[activity][status]" to "All"
-    And I click on "#id_override_condition_activity_modules" "css_element" in the "#fitem_id_condition_activity_modules" "css_element"
     And I set the field "Select activities" in the "#fitem_id_condition_activity_modules" "css_element" to "Assign1, Assign2, Assign3, Assign4, Assign5"
     And I click on "#id_override_condition_activity_acompletionmethod" "css_element" in the "#fitem_id_condition_activity_acompletionmethod" "css_element"
     And I set the field "condition[activity][acompletionmethod]" to "Selected activities"
