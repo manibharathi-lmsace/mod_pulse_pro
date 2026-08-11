@@ -123,6 +123,6 @@ jobs:
         if: ${{ always() }}
         run: moodle-plugin-ci phpunit
 
-      # - name: Behat features
-      #   if: ${{ always() }}
-      #   run: moodle-plugin-ci behat --profile chrome
+      - name: Behat features
+        if: ${{ always() }}
+        run: moodle-plugin-ci behat --profile chrome
