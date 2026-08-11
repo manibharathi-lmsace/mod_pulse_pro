@@ -427,7 +427,13 @@ class conditionform extends \mod_pulse\automation\condition_base {
 
         if ($type == self::INACTIVITY_ACCESS) {
             [$sql, $params] = $this->build_access_inactivity_sql(
-                $course, $inactivitythreshold, $now, $requireprior, $activitythreshold, $flooredstart, $aftercursor
+                $course,
+                $inactivitythreshold,
+                $now,
+                $requireprior,
+                $activitythreshold,
+                $flooredstart,
+                $aftercursor
             );
         } else if ($type == self::INACTIVITY_COMPLETION) {
             $cmids = $this->get_relevant_activity_ids_cached($course, $includedactivities);
@@ -435,7 +441,14 @@ class conditionform extends \mod_pulse\automation\condition_base {
                 return null;
             }
             [$sql, $params] = $this->build_completion_inactivity_sql(
-                $course, $cmids, $inactivitythreshold, $now, $requireprior, $activitythreshold, $flooredstart, $aftercursor
+                $course,
+                $cmids,
+                $inactivitythreshold,
+                $now,
+                $requireprior,
+                $activitythreshold,
+                $flooredstart,
+                $aftercursor
             );
         } else {
             return null;
@@ -597,9 +610,16 @@ class conditionform extends \mod_pulse\automation\condition_base {
      * @param int $aftercursor Only return users with userid > this value (for paging). 0 to start from the beginning.
      * @return array [$sql, $params]
      */
-    protected function build_completion_inactivity_sql($course, array $cmids, $inactivitythreshold, $now,
-                                                       $requireprior, $activitythreshold, $flooredstart = null,
-                                                       $aftercursor = 0) {
+    protected function build_completion_inactivity_sql(
+        $course,
+        array $cmids,
+        $inactivitythreshold,
+        $now,
+        $requireprior,
+        $activitythreshold,
+        $flooredstart = null,
+        $aftercursor = 0
+    ) {
         global $DB;
 
         [$insql, $inparams] = $DB->get_in_or_equal($cmids, SQL_PARAMS_NAMED, 'cm');
