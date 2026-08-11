@@ -100,7 +100,7 @@ Feature: Pulse credits action application
       | Upcoming enrolment | C1     | upcomingenrolmentinstance |
     When I log in as "admin"
     # Trigger the schedule by saving the instance in interface.
-    And I wait "20" seconds
+    And I wait "40" seconds
     And I save the pulse action instance "upcomingenrolmentinstance" on course "Course 1"
     And I open credits instance schedule report for "upcomingenrolmentinstance"
     Then ".reportbuilder-report" "css_element" should exist
